@@ -41,7 +41,13 @@ check_purse_input <- function(x){
   }
 }
 
-# Check for named data set
+#' Check for named data set in purse
+#'
+#' @param x A purse object
+#' @param dset Name of data set to check
+#' @param ... Not used
+#'
+#' @export
 check_dset.purse <- function(x, dset, ...){
 
   stopifnot(is.purse(x),
@@ -57,7 +63,13 @@ check_dset.purse <- function(x, dset, ...){
 }
 
 
-# Check for named data set
+#' Check for named data set in coin
+#'
+#' @param x A coin object
+#' @param dset Name of data set to check
+#' @param ... Not used
+#'
+#' @export
 check_dset.coin <- function(x, dset, ...){
 
   stopifnot(is.coin(x),

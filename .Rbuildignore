@@ -20,3 +20,5 @@
 ^paper$
 ^\.github$
 ^codecov\.yml$
+progress.md
+tmp_script/

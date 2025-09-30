@@ -16,8 +16,9 @@ print.coin <- function(x, ...){
 
   coin <- x
 
+  headline <- if(inherits(coin, "unbalanced_coin")) "An unbalanced coin with..." else "A coin with..."
   cat("--------------\n")
-  cat("A coin with...\n")
+  cat(headline, "\n", sep = "")
   cat("--------------\n")
   # Input
   # Units
@@ -75,6 +76,7 @@ print.coin <- function(x, ...){
   for(ii in 1:ncol(fwk)){
 
     codes <- unique(fwk[[ii]])
+    codes <- codes[!is.na(codes)]
     nuniq <- length(codes)
     first3 <- utils::head(codes, 3)
     if(length(codes)>3){
@@ -82,6 +84,10 @@ print.coin <- function(x, ...){
       first3 <- paste0(first3, ", ...")
     } else {
       first3 <- paste0(first3, collapse = ", ")
+    }
+
+    if(nuniq == 0){
+      next
     }
 
     # colnames are level names

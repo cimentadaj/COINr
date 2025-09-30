@@ -121,6 +121,22 @@ test_that("agg_purse", {
   expect_equal(purse$coin[[1]]$Data$Aggregated, coin1$Data$Aggregated)
 })
 
+test_that("Aggregate handles unbalanced coins", {
+
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Aggregate(coin_unbal, dset = "Raw")
+
+  expect_setequal(names(coin_unbal$Data$Aggregated),
+                  c("uCode", "IndA1", "IndA2", "IndB", "SubA", "Index"))
+
+  expected_subA <- rowMeans(unbal_iData[c("IndA1", "IndA2")])
+  expect_equal(coin_unbal$Data$Aggregated$SubA, expected_subA)
+
+  expected_index <- (expected_subA * 0.5 + unbal_iData$IndB * 0.5) / (0.5 + 0.5)
+  expect_equal(coin_unbal$Data$Aggregated$Index, expected_index)
+
+})
+
 test_that("agg_functions", {
 
   # geometric
