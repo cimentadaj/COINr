@@ -65,6 +65,7 @@ reference:
   desc: Modify and create new data sets
   contents:
   - new_coin
+  - new_unbalanced_coin
   - Screen
   - Denominate
   - Impute
@@ -126,6 +127,7 @@ reference:
   desc: Other functions including methods and small functions called by other functions
   contents:
   - Aggregate.coin
+  - Aggregate.unbalanced_coin
   - Aggregate.data.frame
   - Aggregate.purse
   - approx_df
@@ -139,6 +141,8 @@ reference:
   - check_iData
   - check_iMeta
   - check_SkewKurt
+  - check_dset.coin
+  - check_dset.purse
   - compare_df
   - Custom.coin
   - Custom.purse
@@ -224,5 +228,7 @@ reference:
   - ASEM_iData
   - ASEM_iData_p
   - ASEM_iMeta
+  - unbal_iData
+  - unbal_iMeta
   - WorldDenoms
 

@@ -94,7 +94,7 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
 #' `NA` (see `dat_thresh` argument). If `by_df = TRUE`, this will however be ignored because aggregation is not
 #' done on individual rows. Note that more complex constraints could be built into `f_ag` if needed.
 #'
-#' @param x A coin class object.
+#' @param x For `Aggregate.coin()`, a coin object; for `Aggregate.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param f_ag The name of an aggregation function, a string. This can either be a single string naming
 #' a function to use for all aggregation levels, or else a character vector of function names of length `n-1`, where `n` is
@@ -114,7 +114,7 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
 #' @param by_df Controls whether to send a numeric vector to `f_ag` (if `FALSE`, default) or a data frame (if `TRUE`) - see
 #' details. Can also be specified as a logical vector of length `n-1`, where `n` is
 #' the number of levels in the index structure.
-#' @param out2 Either `"coin"` (default) to return updated coin or `"df"` to output the aggregated data set.
+#' @param out2 Either `"coin"` (default for `Aggregate.coin()`) or `"unbalanced_coin"` (default for `Aggregate.unbalanced_coin()`) to return the updated object, or `"df"` to output the aggregated data set.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Aggregated"`.
 #' @param ... arguments passed to or from other methods.
 #'
@@ -527,6 +527,7 @@ Aggregate.data.frame <- function(x, f_ag = NULL, f_ag_para = NULL, dat_thresh = 
 #'
 #' * [Aggregate.data.frame()]
 #' * [Aggregate.coin()]
+#' * [Aggregate.unbalanced_coin()]
 #' * [Aggregate.purse()]
 #'
 #' @param x Object to be aggregated

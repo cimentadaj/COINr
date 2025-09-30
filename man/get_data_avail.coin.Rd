@@ -7,7 +7,7 @@
 \method{get_data_avail}{coin}(x, dset, out2 = "coin", ...)
 }
 \arguments{
-\item{x}{A coin}
+\item{x}{For \code{Screen.coin()}, a coin; for \code{Screen.unbalanced_coin()}, an \code{unbalanced_coin}.}
 
 \item{dset}{String indicating name of data set in \code{.$Data}.}
 

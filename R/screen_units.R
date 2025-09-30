@@ -7,6 +7,7 @@
 #'
 #' * [Screen.data.frame()]
 #' * [Screen.coin()]
+#' * [Screen.unbalanced_coin()]
 #' * [Screen.purse()]
 #'
 #' @param x Object to be screened
@@ -160,7 +161,8 @@ Screen.data.frame <- function(x, id_col = NULL, unit_screen, dat_thresh = NULL, 
 #'
 #' See also `vignette("screening")`.
 #'
-#' @param x A coin
+#' @param x For `Screen.coin()`, a coin; for `Screen.unbalanced_coin()`, an `unbalanced_coin`.
+
 #' @param dset The data set to be checked/screened
 #' @param unit_screen Specifies whether and how to screen units based on data availability or zero values.
 #' * If set to `"byNA"`, screens units with data availability below `dat_thresh`
@@ -300,7 +302,8 @@ get_data_avail <- function(x, ...){
 #'
 #' See also vignettes: `vignette("analysis")` and `vignette("imputation")`.
 #'
-#' @param x A coin
+#' @param x For `Screen.coin()`, a coin; for `Screen.unbalanced_coin()`, an `unbalanced_coin`.
+
 #' @param dset String indicating name of data set in `.$Data`.
 #' @param out2 Either `"coin"` to output an updated coin or `"list"` to output a list.
 #' @param ... arguments passed to or from other methods.

@@ -22,6 +22,7 @@ This is a generic function with the following methods:
 \item \code{\link[=Impute.numeric]{Impute.numeric()}}
 \item \code{\link[=Impute.data.frame]{Impute.data.frame()}}
 \item \code{\link[=Impute.coin]{Impute.coin()}}
+\item \code{\link[=Impute.unbalanced_coin]{Impute.unbalanced_coin()}}
 \item \code{\link[=Impute.purse]{Impute.purse()}}
 }
 

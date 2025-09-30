@@ -163,7 +163,7 @@ Impute.purse <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_by = "colu
 #'
 #' See also documentation for [Impute.data.frame()] and [Impute.numeric()] which are called by this function.
 #'
-#' @param x A coin class object
+#' @param x For `Impute.coin()`, a coin object; for `Impute.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param f_i An imputation function. See details.
 #' @param f_i_para Further arguments to pass to `f_i`, other than `x`. See details.
@@ -676,6 +676,7 @@ Impute.numeric <- function(x, f_i = NULL, f_i_para = NULL, ...){
 #' * [Impute.numeric()]
 #' * [Impute.data.frame()]
 #' * [Impute.coin()]
+#' * [Impute.unbalanced_coin()]
 #' * [Impute.purse()]
 #'
 #' See those methods for individual documentation.

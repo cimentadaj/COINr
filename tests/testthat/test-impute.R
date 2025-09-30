@@ -229,6 +229,7 @@ test_that("Impute unbalanced coin", {
   coin_unbal <- new_unbalanced_coin(idata_na, unbal_iMeta, quietly = TRUE)
   coin_unbal <- Impute(coin_unbal, dset = "Raw", f_i = "i_mean", write_to = "Imputed_unbal")
 
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
   imputed <- get_dset(coin_unbal, "Imputed_unbal")
   expect_setequal(names(imputed), c("uCode", "IndA1", "IndA2", "IndB"))
   expect_false(anyNA(imputed))
@@ -242,5 +243,7 @@ test_that("Impute unbalanced coin", {
   imputed_df <- Impute(coin_unbal_df, dset = "Raw", f_i = "i_mean", out2 = "df")
 
   expect_setequal(names(imputed_df), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_error(Impute(new_unbalanced_coin(idata_na, unbal_iMeta, quietly = TRUE), dset = "Raw", f_i = "i_mean", out2 = "coin"),
+               "Set out2 = 'unbalanced_coin'")
 
 })

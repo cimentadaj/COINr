@@ -22,6 +22,7 @@ for more details:
 \itemize{
 \item \code{\link[=Aggregate.data.frame]{Aggregate.data.frame()}}
 \item \code{\link[=Aggregate.coin]{Aggregate.coin()}}
+\item \code{\link[=Aggregate.unbalanced_coin]{Aggregate.unbalanced_coin()}}
 \item \code{\link[=Aggregate.purse]{Aggregate.purse()}}
 }
 }

@@ -73,6 +73,7 @@ test_that("screen_unbalanced_coin", {
                        Force = data.frame(uCode = "U3", Include = FALSE),
                        write_to = "scr_unbal")
 
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
   screened <- get_dset(coin_unbal, dset = "scr_unbal")
   manual <- Screen(unbal_iData, id_col = "uCode", unit_screen = "byNA",
                    dat_thresh = 0.9,

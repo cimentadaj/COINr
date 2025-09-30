@@ -74,6 +74,7 @@ test_that("Denominate unbalanced coin", {
   coin_unbal <- Denominate(coin_unbal, dset = "Raw", denoms = denoms,
                            denomby = denomby, write_to = "Denom_unbal")
 
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
   denom_dset <- get_dset(coin_unbal, "Denom_unbal")
   denom_manual <- Denominate(unbal_iData, denoms = denoms, denomby = denomby)
 

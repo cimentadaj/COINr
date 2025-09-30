@@ -23,6 +23,7 @@ This function replaces the now-defunct \code{checkData()} from COINr < v1.0.
 \itemize{
 \item \code{\link[=Screen.data.frame]{Screen.data.frame()}}
 \item \code{\link[=Screen.coin]{Screen.coin()}}
+\item \code{\link[=Screen.unbalanced_coin]{Screen.unbalanced_coin()}}
 \item \code{\link[=Screen.purse]{Screen.purse()}}
 }
 }

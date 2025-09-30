@@ -126,6 +126,7 @@ test_that("Aggregate handles unbalanced coins", {
   coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
   coin_unbal <- Aggregate(coin_unbal, dset = "Raw")
 
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
   expect_setequal(names(coin_unbal$Data$Aggregated),
                   c("uCode", "IndA1", "IndA2", "IndB", "SubA", "Index"))
 

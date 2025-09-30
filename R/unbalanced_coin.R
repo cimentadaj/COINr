@@ -1,5 +1,20 @@
 # Unbalanced coin constructor and aggregation helpers
 
+.ensure_unbalanced_class <- function(res){
+  if(!inherits(res, "coin")){
+    stop("Expected a coin object when returning from unbalanced method.")
+  }
+  if(!is.null(res$Meta$Lineage_unbalanced)){
+    res$Meta$Lineage <- res$Meta$Lineage_unbalanced
+  }
+  if(!is.null(res$Meta$Unbalanced$OriginalMeta$Level)){
+    res$Meta$maxlev <- max(res$Meta$Unbalanced$OriginalMeta$Level, na.rm = TRUE)
+  }
+  class(res) <- unique(c("unbalanced_coin", class(res)))
+  res
+}
+
+
 # internal helper: compute hierarchical levels (distance from leaves)
 .compute_levels <- function(meta){
   codes <- meta$iCode
@@ -223,57 +238,84 @@ print.unbalanced_coin <- function(x, ...){
 
 #' Aggregate method for unbalanced coins
 #'
-#' @inheritParams Aggregate.coin
+#' @param x,dset,f_ag,w,f_ag_para,dat_thresh,by_df,out2,write_to,... See [Aggregate.coin()].
+#' @describeIn Aggregate.coin Wrapper that preserves unbalanced hierarchies.
+#' @details Compared with [Aggregate.coin()], this method keeps the public lineage and maximum level of the unbalanced hierarchy while delegating the computation to the balanced implementation. Requests for `out2 = "coin"` are disallowed because that would discard the unbalanced class tagging.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' Aggregate(unbal, dset = "Raw")
 #' @export
-Aggregate.unbalanced_coin <- function(x, dset, ...){
+Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat_thresh = NULL,
+                                      by_df = FALSE, out2 = "unbalanced_coin", write_to = NULL, ...) {
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
   call <- match.call()
-  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "coin"
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
   write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
   if(is.null(write_to_name)){
     write_to_name <- "Aggregated"
   }
 
-  res <- NextMethod()
+  res <- NextMethod(out2 = next_out2)
 
   if(is.data.frame(res)){
     if(length(placeholders) > 0){
-      keep <- setdiff(names(res), placeholders)
-      res <- res[keep]
+      res <- res[setdiff(names(res), placeholders)]
     }
     return(res)
   }
 
-  if(length(placeholders) > 0){
-    if(!is.null(res$Data[[write_to_name]])){
-      keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
-      res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
-    }
+  if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
+    keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
+    res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
   }
   res
 }
 
 
 
+#' @param x,dset,f_i,f_i_para,impute_by,use_group,group_level,normalise_first,out2,write_to,disable,warn_on_NAs,... See [Impute.coin()].
+#' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
+#' @details In addition to the behaviour of [Impute.coin()], this method keeps the unbalanced metadata view and rejects `out2 = "coin"` to avoid dropping the `unbalanced_coin` class.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' unbal$Data$Raw$IndA1[2] <- NA
+#' Impute(unbal, dset = "Raw")
 #' @export
-Impute.unbalanced_coin <- function(x, dset, ...){
+Impute.unbalanced_coin <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_by = "column",
+                                 use_group = NULL, group_level = NULL, normalise_first = NULL,
+                                 out2 = "unbalanced_coin", write_to = NULL, disable = FALSE,
+                                 warn_on_NAs = TRUE, ...) {
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
   call <- match.call()
-  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "coin"
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
   write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
   if(is.null(write_to_name)){
     write_to_name <- "Imputed"
   }
 
-  res <- NextMethod()
+  res <- NextMethod(out2 = next_out2)
 
   if(length(placeholders) == 0){
+    if(identical(out2, "unbalanced_coin")) res <- .ensure_unbalanced_class(res)
     return(res)
   }
 
   if(is.data.frame(res)){
-    keep <- setdiff(names(res), placeholders)
-    res <- res[keep]
+    res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
 
@@ -281,28 +323,50 @@ Impute.unbalanced_coin <- function(x, dset, ...){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
   }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
+  }
   res
 }
 
+#' @param x,dset,denoms,denomby,denoms_ID,f_denom,write_to,out2,... See [Denominate.coin()].
+#' @describeIn Denominate.coin Wrapper that retains the unbalanced structure.
+#' @details Compared with [Denominate.coin()], the unbalanced method blocks `out2 = "coin"` and keeps the restored lineage/max-level of the original unbalanced hierarchy while stripping internal placeholder nodes.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' denoms <- data.frame(uCode = unbal_iData$uCode, DenSub = c(2, 4, 5), DenB = c(10, 12, 15))
+#' specs <- data.frame(
+#'   iCode = c("IndA1", "IndA2", "IndB"),
+#'   Denominator = c("DenSub", "DenSub", "DenB"),
+#'   ScaleFactor = 1
+#' )
+#' Denominate(unbal, dset = "Raw", denoms = denoms, denomby = specs)
 #' @export
-Denominate.unbalanced_coin <- function(x, dset, ...){
+Denominate.unbalanced_coin <- function(x, dset, denoms = NULL, denomby = NULL, denoms_ID = NULL,
+                                        f_denom = NULL, write_to = NULL, out2 = "unbalanced_coin", ...) {
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
   call <- match.call()
-  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "coin"
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
   write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
   if(is.null(write_to_name)){
     write_to_name <- "Denominated"
   }
 
-  res <- NextMethod()
+  res <- NextMethod(out2 = next_out2)
 
   if(length(placeholders) == 0){
+    if(identical(out2, "unbalanced_coin")) res <- .ensure_unbalanced_class(res)
     return(res)
   }
 
   if(is.data.frame(res)){
-    keep <- setdiff(names(res), placeholders)
-    res <- res[keep]
+    res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
 
@@ -310,42 +374,61 @@ Denominate.unbalanced_coin <- function(x, dset, ...){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
   }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
+  }
   res
 }
 
+#' #' @param x,dset,unit_screen,dat_thresh,nonzero_thresh,Force,out2,write_to,... See [Screen.coin()].
+#' @describeIn Screen.coin Wrapper that retains the unbalanced structure.
+#' @details This method mirrors [Screen.coin()] but restores lineage/max-level for unbalanced hierarchies and rejects `out2 = "coin"`. Placeholder nodes are removed from all outward-facing outputs.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' Screen(unbal, dset = "Raw", unit_screen = "byNA", dat_thresh = 0.9)
 #' @export
-Screen.unbalanced_coin <- function(x, dset, ...){
+Screen.unbalanced_coin <- function(x, dset, unit_screen, dat_thresh = NULL, nonzero_thresh = NULL,
+                                   Force = NULL, out2 = "unbalanced_coin", write_to = NULL, ...) {
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
   call <- match.call()
-  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "coin"
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'list'/'df' for data outputs.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
   write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
   if(is.null(write_to_name)){
     write_to_name <- "Screened"
   }
 
-  res <- NextMethod()
+  res <- NextMethod(out2 = next_out2)
 
   if(length(placeholders) == 0){
+    if(identical(out2, "unbalanced_coin") && inherits(res, "coin")) res <- .ensure_unbalanced_class(res)
     return(res)
   }
 
   if(is.list(res) && !inherits(res, "coin")){
     if(!is.null(res$ScreenedData)){
-      keep <- setdiff(names(res$ScreenedData), placeholders)
-      res$ScreenedData <- res$ScreenedData[keep]
+      res$ScreenedData <- res$ScreenedData[setdiff(names(res$ScreenedData), placeholders)]
     }
     return(res)
   }
 
   if(is.data.frame(res)){
-    keep <- setdiff(names(res), placeholders)
-    res <- res[keep]
+    res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
 
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
   }
   res
 }

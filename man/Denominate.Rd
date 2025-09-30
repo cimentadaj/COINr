@@ -23,6 +23,7 @@ See documentation for individual methods:
 \itemize{
 \item \code{\link[=Denominate.data.frame]{Denominate.data.frame()}}
 \item \code{\link[=Denominate.coin]{Denominate.coin()}}
+\item \code{\link[=Denominate.unbalanced_coin]{Denominate.unbalanced_coin()}}
 \item \code{\link[=Denominate.purse]{Denominate.purse()}}.
 }
 

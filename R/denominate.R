@@ -69,7 +69,7 @@ Denominate.purse <- function(x, dset, denoms = NULL, denomby = NULL, denoms_ID =
 #'
 #' See also documentation for [Denominate.data.frame()] which is called by this method.
 #'
-#' @param x A coin class object
+#' @param x For `Denominate.coin()`, a coin object; for `Denominate.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param denoms An optional data frame of denominator data. Columns should be denominator data, with column names corresponding
 #' to entries in `denomby`. This must also include an ID column identified by `denoms_ID` to match rows. If `denoms`
@@ -297,6 +297,7 @@ Denominate.data.frame <- function(x, denoms, denomby, x_ID = NULL, denoms_ID = N
 #'
 #' * [Denominate.data.frame()]
 #' * [Denominate.coin()]
+#' * [Denominate.unbalanced_coin()]
 #' * [Denominate.purse()].
 #'
 #' This function replaces the now-defunct `denominate()` from COINr < v1.0.
