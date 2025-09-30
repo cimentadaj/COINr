@@ -481,6 +481,28 @@ Treat.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs = NU
   res
 }
 
+#' @describeIn Custom.coin Wrapper that retains the unbalanced structure.
+#' @export
+Custom.unbalanced_coin <- function(x, dset, f_cust, f_cust_para = NULL, write_to = NULL,
+                                   write2log = TRUE, ...) {
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  call <- match.call()
+  write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
+  if(is.null(write_to_name)){
+    write_to_name <- "Custom"
+  }
+
+  res <- NextMethod()
+
+  if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
+    keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
+    res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  res <- .ensure_unbalanced_class(res)
+  res
+}
+
 #' #' @param x,dset,unit_screen,dat_thresh,nonzero_thresh,Force,out2,write_to,... See [Screen.coin()].
 #' @describeIn Screen.coin Wrapper that retains the unbalanced structure.
 #' @details This method mirrors [Screen.coin()] but restores lineage/max-level for unbalanced hierarchies and rejects `out2 = "coin"`. Placeholder nodes are removed from all outward-facing outputs.

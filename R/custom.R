@@ -149,7 +149,7 @@ Custom.purse <- function(x, dset, f_cust, f_cust_para = NULL, global = FALSE,
 #' within the coin, which makes it portable. Otherwise, if the function is simply
 #' named as a string, you must make sure it is available to access in the environment.
 #'
-#' @param x A coin
+#' @param x For `Custom.coin()`, a coin object; for `Custom.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset Target data set
 #' @param f_cust Function to apply to the data set. See details.
 #' @param f_cust_para Optional additional parameters to pass to the function defined
@@ -158,7 +158,7 @@ Custom.purse <- function(x, dset, f_cust, f_cust_para = NULL, global = FALSE,
 #' @param write2log Logical: whether or not to write to the log.
 #' @param ... Arguments to pass to/from other methods.
 #'
-#' @return A coin
+#' @return A coin (or `unbalanced_coin`).
 #' @export
 #'
 #' @examples
