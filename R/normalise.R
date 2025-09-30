@@ -159,7 +159,7 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'
 #' See also `vignette("normalise")` for more details.
 #'
-#' @param x A coin
+#' @param x For `Normalise.coin()`, a coin object; for `Normalise.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset A named data set found in `.$Data`
 #' @param global_specs Specifications to apply to all columns, apart from those specified by `indiv_specs`. See details.
 #' @param indiv_specs Specifications applied to specific columns, overriding those specified in `global_specs`.
@@ -168,8 +168,7 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' * `iCode` The indicator code, corresponding to the column names of the data set
 #' * `Direction` numeric vector with entries either `-1` or `1`
 #' If `directions` is not specified, the directions will be taken from the `iMeta` table in the coin, if available.
-#' @param out2 Either `"coin"` to return normalised data set back to the coin, or `df` to simply return a data
-#' frame.
+#' @param out2 For `Normalise.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to return a data frame. For `Normalise.unbalanced_coin()` the default is `"unbalanced_coin"` and `"coin"` is not permitted; use `"df"` for a data-frame output.
 #' @param write_to Optional character string for naming the data set in the coin. Data will be written to
 #' `.$Data[[write_to]]`. Default is `write_to == "Normalised"`.
 #' @param write2log Logical: if `FALSE`, the arguments of this function are not written to the coin log, so this
@@ -183,7 +182,7 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' # normalise the raw data set
 #' coin <- Normalise(coin, dset = "Raw")
 #'
-#' @return An updated coin
+#' @return An updated coin (or `unbalanced_coin`).
 #' @export
 Normalise.coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
                            directions = NULL, out2 = "coin", write_to = NULL,
@@ -493,6 +492,7 @@ Normalise.numeric <- function(x, f_n = NULL, f_n_para = NULL,
 #' * [Normalise.numeric()]
 #' * [Normalise.data.frame()]
 #' * [Normalise.coin()]
+#' * [Normalise.unbalanced_coin()]
 #' * [Normalise.purse()]
 #'
 #' See also `vignette("normalise")` for more details.

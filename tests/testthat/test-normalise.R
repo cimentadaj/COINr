@@ -23,6 +23,38 @@ test_that("norm_num", {
 
 })
 
+test_that("Normalise unbalanced coin", {
+
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Normalise(coin_unbal, dset = "Raw", write_to = "Normalised_unbal")
+
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
+
+  norm_unbal <- get_dset(coin_unbal, "Normalised_unbal")
+  expect_setequal(names(norm_unbal), c("uCode", "IndA1", "IndA2", "IndB"))
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  expect_false(any(names(norm_unbal) %in% placeholders))
+
+  dirs <- data.frame(iCode = names(unbal_iData), Direction = 1)
+  meta_ind <- unbal_iMeta[unbal_iMeta$Type == "Indicator", c("iCode", "Direction")]
+  idx <- match(meta_ind$iCode, dirs$iCode)
+  valid_idx <- !is.na(idx)
+  dirs$Direction[idx[valid_idx]] <- meta_ind$Direction[valid_idx]
+  manual <- Normalise(unbal_iData, directions = dirs)
+
+  expect_equal(norm_unbal, manual)
+
+  coin_unbal_df <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  norm_df <- Normalise(coin_unbal_df, dset = "Raw", out2 = "df")
+  expect_setequal(names(norm_df), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(norm_df) %in% coin_unbal_df$Meta$Unbalanced$PlaceholderCodes))
+
+  expect_error(Normalise(new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE),
+                         dset = "Raw", out2 = "coin"),
+               "Set out2 = 'unbalanced_coin'")
+
+})
+
 test_that("norm_df", {
 
   # some test data

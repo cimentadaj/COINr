@@ -330,6 +330,52 @@ Impute.unbalanced_coin <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_
   res
 }
 
+#' @param x,dset,global_specs,indiv_specs,directions,out2,write_to,write2log,... See [Normalise.coin()].
+#' @describeIn Normalise.coin Wrapper that retains the unbalanced structure.
+#' @details This method mirrors [Normalise.coin()] while preserving the unbalanced lineage/max-level metadata, stripping placeholder nodes from outward data, and preventing `out2 = "coin"`.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' Normalise(unbal, dset = "Raw")
+#' @export
+Normalise.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
+                                      directions = NULL, out2 = "unbalanced_coin", write_to = NULL,
+                                      write2log = TRUE, ...) {
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  call <- match.call()
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
+  write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
+  if(is.null(write_to_name)){
+    write_to_name <- "Normalised"
+  }
+
+  res <- NextMethod(out2 = next_out2)
+
+  if(length(placeholders) == 0){
+    if(identical(out2, "unbalanced_coin") && inherits(res, "coin")) res <- .ensure_unbalanced_class(res)
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    res <- res[setdiff(names(res), placeholders)]
+    return(res)
+  }
+
+  if(!is.null(res$Data[[write_to_name]])){
+    keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
+    res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
+  }
+  res
+}
+
 #' @param x,dset,denoms,denomby,denoms_ID,f_denom,write_to,out2,... See [Denominate.coin()].
 #' @describeIn Denominate.coin Wrapper that retains the unbalanced structure.
 #' @details Compared with [Denominate.coin()], the unbalanced method blocks `out2 = "coin"` and keeps the restored lineage/max-level of the original unbalanced hierarchy while stripping internal placeholder nodes.
