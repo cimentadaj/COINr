@@ -38,7 +38,7 @@
 )
 }
 \arguments{
-\item{x}{For \code{Impute.coin()}, a coin object; for \code{Impute.unbalanced_coin()} an \code{unbalanced_coin} object.}
+\item{x}{A \code{coin} object for \code{Impute.coin()} or an \code{unbalanced_coin} created with \code{\link[=new_unbalanced_coin]{new_unbalanced_coin()}} for \code{Impute.unbalanced_coin()}.}
 
 \item{dset}{The name of the data set to apply the function to, which should be accessible in \code{.$Data}.}
 
@@ -62,8 +62,9 @@ more similar.}
 \item{normalise_first}{Logical: if \code{TRUE}, each column is normalised using a min-max operation before
 imputation. By default this is \code{FALSE} unless \code{impute_by = "row"}. See details.}
 
-\item{out2}{Either \code{"coin"} to return normalised data set back to the coin, or \code{df} to simply return a data
-frame.}
+\item{out2}{For \code{Impute.coin()}, either \code{"coin"} (default) to return the updated coin or \code{"df"} to return a data
+frame. For \code{Impute.unbalanced_coin()}, either \code{"unbalanced_coin"} (default) to retain the class or \code{"df"} to return a
+data frame; setting \code{"coin"} is not permitted because that would drop the unbalanced metadata.}
 
 \item{write_to}{Optional character string for naming the data set in the coin. Data will be written to
 \code{.$Data[[write_to]]}. Default is \code{write_to == "Imputed"}.}
@@ -75,11 +76,11 @@ in sensitivity and uncertainty analysis (to test the effect of turning imputatio
 after imputation has been applied. Set \code{FALSE} to suppress these warnings.}
 
 \item{...}{arguments passed to or from other methods.}
-
-\item{x, dset, f_i, f_i_para, impute_by, use_group, group_level, normalise_first, out2, write_to, disable, warn_on_NAs, ...}{See \code{\link[=Impute.coin]{Impute.coin()}}.}
 }
 \value{
-An updated coin with imputed data set at \code{.$Data[[write_to]]}
+For \code{Impute.coin()}, an updated \code{coin} with the imputed data set at \code{.$Data[[write_to]]} when \code{out2 = "coin"},
+otherwise a data frame when \code{out2 = "df"}. For \code{Impute.unbalanced_coin()}, an updated \code{unbalanced_coin} when
+\code{out2 = "unbalanced_coin"} or a data frame when \code{out2 = "df"}.
 }
 \description{
 This imputes any \code{NA}s in the data set specified by \code{dset}

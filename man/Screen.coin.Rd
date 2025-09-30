@@ -30,7 +30,8 @@
 )
 }
 \arguments{
-\item{x}{For \code{Screen.coin()}, a coin; for \code{Screen.unbalanced_coin()}, an \code{unbalanced_coin}.}
+\item{x}{A \code{coin} object for \code{Screen.coin()} or an \code{unbalanced_coin} created with \code{\link[=new_unbalanced_coin]{new_unbalanced_coin()}} for
+\code{Screen.unbalanced_coin()}.}
 
 \item{dset}{The data set to be checked/screened}
 
@@ -49,16 +50,19 @@
 (unit code(s)) and \code{Include} (logical: \code{TRUE} to include and \code{FALSE} to exclude). Specifications here override
 exclusion/inclusion based on data rules.}
 
-\item{out2}{Where to output the results. If \code{"COIN"} (default for COIN input), appends to updated COIN,
-otherwise if \code{"list"} outputs to data frame.}
+\item{out2}{Where to output the results. For \code{Screen.coin()}, \code{"coin"} (default) appends results to the coin and
+\code{"list"} returns data objects. For \code{Screen.unbalanced_coin()}, \code{"unbalanced_coin"} (default) appends results while
+preserving the unbalanced structure and \code{"list"} returns data objects; using \code{"coin"} is not supported.}
 
 \item{write_to}{If specified, writes the aggregated data to \code{.$Data[[write_to]]}. Default \code{write_to = "Screened"}.}
 
 \item{...}{arguments passed to or from other methods.}
 }
 \value{
-An updated coin with data frames showing missing data in \code{.$Analysis}, and a new data set \code{.$Data$Screened}.
-If \code{out2 = "list"} wraps missing data stats and screened data set into a list.
+For \code{Screen.coin()}, an updated \code{coin} with data frames showing missing data in \code{.$Analysis} and a new data
+set \code{.$Data$Screened} when \code{out2 = "coin"}, otherwise a list of screening outputs when \code{out2 = "list"}. For
+\code{Screen.unbalanced_coin()}, an updated \code{unbalanced_coin} when \code{out2 = "unbalanced_coin"} or a list of screening
+outputs when \code{out2 = "list"}.
 }
 \description{
 Screens units based on a data availability threshold and presence of zeros. Units can be optionally

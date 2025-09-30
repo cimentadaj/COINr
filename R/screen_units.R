@@ -161,7 +161,8 @@ Screen.data.frame <- function(x, id_col = NULL, unit_screen, dat_thresh = NULL, 
 #'
 #' See also `vignette("screening")`.
 #'
-#' @param x For `Screen.coin()`, a coin; for `Screen.unbalanced_coin()`, an `unbalanced_coin`.
+#' @param x A `coin` object for `Screen.coin()` or an `unbalanced_coin` created with [new_unbalanced_coin()] for
+#' `Screen.unbalanced_coin()`.
 
 #' @param dset The data set to be checked/screened
 #' @param unit_screen Specifies whether and how to screen units based on data availability or zero values.
@@ -173,8 +174,9 @@ Screen.data.frame <- function(x, id_col = NULL, unit_screen, dat_thresh = NULL, 
 #' @param Force A data frame with any additional countries to force inclusion or exclusion. Required columns `uCode`
 #' (unit code(s)) and `Include` (logical: `TRUE` to include and `FALSE` to exclude). Specifications here override
 #' exclusion/inclusion based on data rules.
-#' @param out2 Where to output the results. If `"COIN"` (default for COIN input), appends to updated COIN,
-#' otherwise if `"list"` outputs to data frame.
+#' @param out2 Where to output the results. For `Screen.coin()`, `"coin"` (default) appends results to the coin and
+#' `"list"` returns data objects. For `Screen.unbalanced_coin()`, `"unbalanced_coin"` (default) appends results while
+#' preserving the unbalanced structure and `"list"` returns data objects; using `"coin"` is not supported.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Screened"`.
 #' @param ... arguments passed to or from other methods.
 #'
@@ -189,8 +191,10 @@ Screen.data.frame <- function(x, id_col = NULL, unit_screen, dat_thresh = NULL, 
 #' # some details about the coin by calling its print method
 #' coin
 #'
-#' @return An updated coin with data frames showing missing data in `.$Analysis`, and a new data set `.$Data$Screened`.
-#' If `out2 = "list"` wraps missing data stats and screened data set into a list.
+#' @return For `Screen.coin()`, an updated `coin` with data frames showing missing data in `.$Analysis` and a new data
+#' set `.$Data$Screened` when `out2 = "coin"`, otherwise a list of screening outputs when `out2 = "list"`. For
+#' `Screen.unbalanced_coin()`, an updated `unbalanced_coin` when `out2 = "unbalanced_coin"` or a list of screening
+#' outputs when `out2 = "list"`.
 #'
 #' @export
 

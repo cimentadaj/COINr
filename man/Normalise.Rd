@@ -20,6 +20,7 @@ a common scale. Please see individual method documentation depending on your dat
 \item \code{\link[=Normalise.numeric]{Normalise.numeric()}}
 \item \code{\link[=Normalise.data.frame]{Normalise.data.frame()}}
 \item \code{\link[=Normalise.coin]{Normalise.coin()}}
+\item \code{\link[=Normalise.unbalanced_coin]{Normalise.unbalanced_coin()}}
 \item \code{\link[=Normalise.purse]{Normalise.purse()}}
 }
 

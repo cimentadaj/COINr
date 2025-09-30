@@ -22,6 +22,7 @@ Generic function for treating outliers using a two-step process. See individual 
 \item \code{\link[=Treat.numeric]{Treat.numeric()}}
 \item \code{\link[=Treat.data.frame]{Treat.data.frame()}}
 \item \code{\link[=Treat.coin]{Treat.coin()}}
+\item \code{\link[=Treat.unbalanced_coin]{Treat.unbalanced_coin()}}
 \item \code{\link[=Treat.purse]{Treat.purse()}}
 }
 

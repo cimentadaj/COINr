@@ -22,6 +22,7 @@ See individual method documentation:
 \itemize{
 \item \code{\link[=qNormalise.data.frame]{qNormalise.data.frame()}}
 \item \code{\link[=qNormalise.coin]{qNormalise.coin()}}
+\item \code{\link[=qNormalise.unbalanced_coin]{qNormalise.unbalanced_coin()}}
 \item \code{\link[=qNormalise.purse]{qNormalise.purse()}}
 }
 }

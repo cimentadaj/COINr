@@ -94,7 +94,8 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
 #' `NA` (see `dat_thresh` argument). If `by_df = TRUE`, this will however be ignored because aggregation is not
 #' done on individual rows. Note that more complex constraints could be built into `f_ag` if needed.
 #'
-#' @param x For `Aggregate.coin()`, a coin object; for `Aggregate.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x A `coin` object for `Aggregate.coin()` or an `unbalanced_coin` built with [new_unbalanced_coin()] for
+#' `Aggregate.unbalanced_coin()`.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param f_ag The name of an aggregation function, a string. This can either be a single string naming
 #' a function to use for all aggregation levels, or else a character vector of function names of length `n-1`, where `n` is
@@ -114,7 +115,9 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
 #' @param by_df Controls whether to send a numeric vector to `f_ag` (if `FALSE`, default) or a data frame (if `TRUE`) - see
 #' details. Can also be specified as a logical vector of length `n-1`, where `n` is
 #' the number of levels in the index structure.
-#' @param out2 Either `"coin"` (default for `Aggregate.coin()`) or `"unbalanced_coin"` (default for `Aggregate.unbalanced_coin()`) to return the updated object, or `"df"` to output the aggregated data set.
+#' @param out2 For `Aggregate.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to output the
+#' aggregated data set. For `Aggregate.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or
+#' `"df"`; using `"coin"` is not allowed because placeholders would be lost.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Aggregated"`.
 #' @param ... arguments passed to or from other methods.
 #'
@@ -125,8 +128,9 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
 #' # aggregate normalised data set
 #' coin <- Aggregate(coin, dset = "Normalised")
 #'
-#' @return An updated coin with aggregated data set added at `.$Data[[write_to]]` if `out2 = "coin"`,
-#' else if `out2 = "df"` outputs the aggregated data set as a data frame.
+#' @return For `Aggregate.coin()`, an updated `coin` with aggregated data at `.$Data[[write_to]]` when `out2 = "coin"`,
+#' or a data frame when `out2 = "df"`. For `Aggregate.unbalanced_coin()`, an updated `unbalanced_coin` when
+#' `out2 = "unbalanced_coin"` or a data frame when `out2 = "df"`.
 #'
 #' @export
 Aggregate.coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat_thresh = NULL,

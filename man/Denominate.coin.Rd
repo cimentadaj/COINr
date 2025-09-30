@@ -30,7 +30,8 @@
 )
 }
 \arguments{
-\item{x}{For \code{Denominate.coin()}, a coin object; for \code{Denominate.unbalanced_coin()} an \code{unbalanced_coin} object.}
+\item{x}{A \code{coin} object for \code{Denominate.coin()} or an \code{unbalanced_coin} returned by \code{\link[=new_unbalanced_coin]{new_unbalanced_coin()}} for
+\code{Denominate.unbalanced_coin()}.}
 
 \item{dset}{The name of the data set to apply the function to, which should be accessible in \code{.$Data}.}
 
@@ -55,14 +56,16 @@ that takes two numeric vectors as inputs and returns a single numeric vector. Se
 
 \item{write_to}{If specified, writes the aggregated data to \code{.$Data[[write_to]]}. Default \code{write_to = "Denominated"}.}
 
-\item{out2}{Either \code{"coin"} (default) to return updated coin or \code{"df"} to output the aggregated data set.}
+\item{out2}{For \code{Denominate.coin()}, either \code{"coin"} (default) to return the updated coin or \code{"df"} to output the
+denominated data set. For \code{Denominate.unbalanced_coin()}, either \code{"unbalanced_coin"} (default) to retain the class or
+\code{"df"}; specifying \code{"coin"} is not supported because it would drop the unbalanced hierarchy.}
 
 \item{...}{arguments passed to or from other methods}
-
-\item{x, dset, denoms, denomby, denoms_ID, f_denom, write_to, out2, ...}{See \code{\link[=Denominate.coin]{Denominate.coin()}}.}
 }
 \value{
-An updated coin if \code{out2 = "coin"}, else a data frame of denominated data if \code{out2 = "df"}.
+For \code{Denominate.coin()}, an updated \code{coin} when \code{out2 = "coin"} or a data frame when \code{out2 = "df"}. For
+\code{Denominate.unbalanced_coin()}, an updated \code{unbalanced_coin} when \code{out2 = "unbalanced_coin"} or a data frame when
+\code{out2 = "df"}.
 }
 \description{
 "Denominates" or "scales" indicators by other variables. Typically this is done by dividing extensive variables such as

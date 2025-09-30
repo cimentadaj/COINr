@@ -185,7 +185,8 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'
 #' See also `vignette("treat")`.
 #'
-#' @param x For `Treat.coin()`, a coin object; for `Treat.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x A `coin` object for `Treat.coin()` or an `unbalanced_coin` produced by [new_unbalanced_coin()] for
+#' `Treat.unbalanced_coin()`.
 #' @param dset A named data set available in `.$Data`
 #' @param global_specs A list specifying the treatment to apply to all columns. This will be applied to all columns, except any
 #' that are specified in the `indiv_specs` argument. Alternatively, set to `"none"` to apply no treatment. See details.
@@ -195,8 +196,8 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' rather than the treated output of `f1`. If `combine_treat = TRUE`, `f2` will instead be applied to the output
 #' of `f1`, so the two treatments will be combined.
 #' @param out2 For `Treat.coin()`, either `"coin"` (default) to return an updated coin or `"list"` to return
-#' treatment details. For `Treat.unbalanced_coin()` the default is `"unbalanced_coin"` and `"coin"` is not
-#' permitted; use `"list"` to return treatment details without modifying the object.
+#' treatment details. For `Treat.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or
+#' `"list"`; requesting `"coin"` is not allowed because it would drop the unbalanced structure.
 #' @param write2log Logical: if `FALSE`, the arguments of this function are not written to the coin log, so this
 #' function will not be invoked when regenerating. Recommend to keep `TRUE` unless you have a good reason to do otherwise.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Treated"`.
@@ -204,8 +205,10 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' @param disable Logical: if `TRUE` will disable data treatment completely and write the unaltered data set. This option is mainly useful
 #' in sensitivity and uncertainty analysis (to test the effect of turning imputation on/off).
 #'
-#' @return An updated coin with a new data set `.Data$Treated` added, plus analysis information in
-#' `.$Analysis$Treated`.
+#' @return For `Treat.coin()`, an updated `coin` with a new data set `.$Data$Treated` and analysis information in
+#' `.$Analysis$Treated` when `out2 = "coin"`, or treatment diagnostics when `out2 = "list"`. For
+#' `Treat.unbalanced_coin()`, an updated `unbalanced_coin` when `out2 = "unbalanced_coin"` or treatment diagnostics when
+#' `out2 = "list"`.
 #' @export
 #'
 #' @examples

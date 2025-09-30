@@ -2,6 +2,7 @@
 % Please edit documentation in R/qfuncs.R
 \name{qNormalise.coin}
 \alias{qNormalise.coin}
+\alias{qNormalise.unbalanced_coin}
 \title{Quick normalisation of a coin}
 \usage{
 \method{qNormalise}{coin}(
@@ -10,11 +11,22 @@
   f_n = "n_minmax",
   f_n_para = list(l_u = c(0, 100)),
   directions = NULL,
+  out2 = "coin",
+  ...
+)
+
+\method{qNormalise}{unbalanced_coin}(
+  x,
+  dset,
+  f_n = "n_minmax",
+  f_n_para = list(l_u = c(0, 100)),
+  directions = NULL,
+  out2 = "unbalanced_coin",
   ...
 )
 }
 \arguments{
-\item{x}{A coin}
+\item{x}{For \code{qNormalise.coin()}, a coin object; for \code{qNormalise.unbalanced_coin()} an \code{unbalanced_coin} object.}
 
 \item{dset}{Name of data set to normalise}
 
@@ -29,10 +41,14 @@
 If \code{directions} is not specified, the directions will be taken from the \code{iMeta} table in the coin, if available.
 }}
 
+\item{out2}{For \code{qNormalise.coin()}, either \code{"coin"} (default) to return the updated coin or \code{"df"} to return a data frame.
+For \code{qNormalise.unbalanced_coin()}, either \code{"unbalanced_coin"} (default) to retain the class or \code{"df"} for a data frame
+output; the value \code{"coin"} is not permitted because it would drop the unbalanced metadata.}
+
 \item{...}{arguments passed to or from other methods.}
 }
 \value{
-An updated coin with normalised data set.
+A coin (or \code{unbalanced_coin}) with normalised data set.
 }
 \description{
 This is a wrapper function for \code{\link[=Normalise]{Normalise()}}, which offers a simpler syntax but less flexibility. It
@@ -45,7 +61,14 @@ Essentially, this function is similar to \code{\link[=Normalise]{Normalise()}} b
 rather than being wrapped in a list. It also does not allow individual normalisation.
 
 See \code{\link[=Normalise]{Normalise()}} documentation for more details, and \code{vignette("normalise")}.
+
+Compared with \code{\link[=qNormalise.coin]{qNormalise.coin()}}, this method defaults \code{out2} to \code{"unbalanced_coin"} and rejects \code{"coin"}, ensuring placeholder columns are stripped from any outward-facing data.
 }
+\section{Functions}{
+\itemize{
+\item \code{qNormalise(unbalanced_coin)}: Wrapper that keeps the unbalanced hierarchy while applying the quick normalisation defaults.
+
+}}
 \examples{
 # build example coin
 coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)

@@ -69,7 +69,8 @@ Denominate.purse <- function(x, dset, denoms = NULL, denomby = NULL, denoms_ID =
 #'
 #' See also documentation for [Denominate.data.frame()] which is called by this method.
 #'
-#' @param x For `Denominate.coin()`, a coin object; for `Denominate.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x A `coin` object for `Denominate.coin()` or an `unbalanced_coin` returned by [new_unbalanced_coin()] for
+#' `Denominate.unbalanced_coin()`.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param denoms An optional data frame of denominator data. Columns should be denominator data, with column names corresponding
 #' to entries in `denomby`. This must also include an ID column identified by `denoms_ID` to match rows. If `denoms`
@@ -87,10 +88,14 @@ Denominate.purse <- function(x, dset, denoms = NULL, denomby = NULL, denoms_ID =
 #' column. By default, this is division, i.e. `x[[col]]/denoms[[col]]` for given columns, but any function can be passed
 #' that takes two numeric vectors as inputs and returns a single numeric vector. See details.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Denominated"`.
-#' @param out2 Either `"coin"` (default) to return updated coin or `"df"` to output the aggregated data set.
+#' @param out2 For `Denominate.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to output the
+#' denominated data set. For `Denominate.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or
+#' `"df"`; specifying `"coin"` is not supported because it would drop the unbalanced hierarchy.
 #' @param ... arguments passed to or from other methods
 #'
-#' @return An updated coin if `out2 = "coin"`, else a data frame of denominated data if `out2 = "df"`.
+#' @return For `Denominate.coin()`, an updated `coin` when `out2 = "coin"` or a data frame when `out2 = "df"`. For
+#' `Denominate.unbalanced_coin()`, an updated `unbalanced_coin` when `out2 = "unbalanced_coin"` or a data frame when
+#' `out2 = "df"`.
 #' @export
 #'
 #' @examples

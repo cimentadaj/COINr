@@ -69,7 +69,9 @@ qNormalise.purse <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(
 #' * `iCode` The indicator code, corresponding to the column names of the data frame
 #' * `Direction` numeric vector with entries either `-1` or `1`
 #' If `directions` is not specified, the directions will be taken from the `iMeta` table in the coin, if available.
-#' @param out2 For `qNormalise.unbalanced_coin()`, either `"unbalanced_coin"` (default) to return the updated coin or `"df"` for a data frame output. The value `"coin"` is not permitted.
+#' @param out2 For `qNormalise.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to return a data frame.
+#' For `qNormalise.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or `"df"` for a data frame
+#' output; the value `"coin"` is not permitted because it would drop the unbalanced metadata.
 #' @param ... arguments passed to or from other methods.
 #'
 #' @return A coin (or `unbalanced_coin`) with normalised data set.
@@ -84,7 +86,7 @@ qNormalise.purse <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(
 #'                    f_n_para = list(l_u = c(1,10)))
 #'
 qNormalise.coin <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(0,100)),
-                            directions = NULL, ...){
+                            directions = NULL, out2 = "coin", ...){
 
   # write log
   coin <- write_log(x, dont_write = "x", write2log = TRUE)
@@ -94,8 +96,11 @@ qNormalise.coin <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(0
                     f_n_para = f_n_para)
 
   # normalise
-  Normalise.coin(coin, dset = dset, global_specs = specs_def,
-                 directions = directions, out2 = "coin", write2log = FALSE, ...)
+  dots <- list(...)
+  args <- c(list(x = coin, dset = dset, global_specs = specs_def,
+                 directions = directions, out2 = out2, write2log = FALSE), dots)
+
+  do.call(Normalise.coin, args)
 
 }
 

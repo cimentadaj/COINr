@@ -22,6 +22,7 @@ See individual method documentation:
 \itemize{
 \item \code{\link[=qTreat.data.frame]{qTreat.data.frame()}}
 \item \code{\link[=qTreat.coin]{qTreat.coin()}}
+\item \code{\link[=qTreat.unbalanced_coin]{qTreat.unbalanced_coin()}}
 \item \code{\link[=qTreat.purse]{qTreat.purse()}}
 }
 }

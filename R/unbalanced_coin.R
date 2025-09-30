@@ -238,7 +238,6 @@ print.unbalanced_coin <- function(x, ...){
 
 #' Aggregate method for unbalanced coins
 #'
-#' @param x,dset,f_ag,w,f_ag_para,dat_thresh,by_df,out2,write_to,... See [Aggregate.coin()].
 #' @describeIn Aggregate.coin Wrapper that preserves unbalanced hierarchies.
 #' @details Compared with [Aggregate.coin()], this method keeps the public lineage and maximum level of the unbalanced hierarchy while delegating the computation to the balanced implementation. Requests for `out2 = "coin"` are disallowed because that would discard the unbalanced class tagging.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)
@@ -282,7 +281,6 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
 
 
 
-#' @param x,dset,f_i,f_i_para,impute_by,use_group,group_level,normalise_first,out2,write_to,disable,warn_on_NAs,... See [Impute.coin()].
 #' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
 #' @details In addition to the behaviour of [Impute.coin()], this method keeps the unbalanced metadata view and rejects `out2 = "coin"` to avoid dropping the `unbalanced_coin` class.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)
@@ -330,7 +328,6 @@ Impute.unbalanced_coin <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_
   res
 }
 
-#' @param x,dset,global_specs,indiv_specs,directions,out2,write_to,write2log,... See [Normalise.coin()].
 #' @describeIn Normalise.coin Wrapper that retains the unbalanced structure.
 #' @details This method mirrors [Normalise.coin()] while preserving the unbalanced lineage/max-level metadata, stripping placeholder nodes from outward data, and preventing `out2 = "coin"`.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)
@@ -376,7 +373,6 @@ Normalise.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs 
   res
 }
 
-#' @param x,dset,denoms,denomby,denoms_ID,f_denom,write_to,out2,... See [Denominate.coin()].
 #' @describeIn Denominate.coin Wrapper that retains the unbalanced structure.
 #' @details Compared with [Denominate.coin()], the unbalanced method blocks `out2 = "coin"` and keeps the restored lineage/max-level of the original unbalanced hierarchy while stripping internal placeholder nodes.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)
@@ -427,7 +423,6 @@ Denominate.unbalanced_coin <- function(x, dset, denoms = NULL, denomby = NULL, d
   res
 }
 
-#' @param x,dset,global_specs,indiv_specs,combine_treat,out2,write_to,write2log,disable,... See [Treat.coin()].
 #' @describeIn Treat.coin Wrapper that retains the unbalanced structure.
 #' @details Compared with [Treat.coin()], this method keeps the unbalanced metadata perspective, strips placeholder nodes from returned data, and forbids `out2 = "coin"` to preserve the `unbalanced_coin` class.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)
@@ -482,6 +477,12 @@ Treat.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs = NU
 }
 
 #' @describeIn Custom.coin Wrapper that retains the unbalanced structure.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' f_identity <- function(x) x
+#' Custom(unbal, dset = "Raw", f_cust = f_identity)
 #' @export
 Custom.unbalanced_coin <- function(x, dset, f_cust, f_cust_para = NULL, write_to = NULL,
                                    write2log = TRUE, ...) {
@@ -503,7 +504,6 @@ Custom.unbalanced_coin <- function(x, dset, f_cust, f_cust_para = NULL, write_to
   res
 }
 
-#' #' @param x,dset,unit_screen,dat_thresh,nonzero_thresh,Force,out2,write_to,... See [Screen.coin()].
 #' @describeIn Screen.coin Wrapper that retains the unbalanced structure.
 #' @details This method mirrors [Screen.coin()] but restores lineage/max-level for unbalanced hierarchies and rejects `out2 = "coin"`. Placeholder nodes are removed from all outward-facing outputs.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)

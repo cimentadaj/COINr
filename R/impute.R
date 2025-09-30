@@ -163,7 +163,7 @@ Impute.purse <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_by = "colu
 #'
 #' See also documentation for [Impute.data.frame()] and [Impute.numeric()] which are called by this function.
 #'
-#' @param x For `Impute.coin()`, a coin object; for `Impute.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x A `coin` object for `Impute.coin()` or an `unbalanced_coin` created with [new_unbalanced_coin()] for `Impute.unbalanced_coin()`.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param f_i An imputation function. See details.
 #' @param f_i_para Further arguments to pass to `f_i`, other than `x`. See details.
@@ -179,8 +179,9 @@ Impute.purse <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_by = "colu
 #' more similar.
 #' @param normalise_first Logical: if `TRUE`, each column is normalised using a min-max operation before
 #' imputation. By default this is `FALSE` unless `impute_by = "row"`. See details.
-#' @param out2 Either `"coin"` to return normalised data set back to the coin, or `df` to simply return a data
-#' frame.
+#' @param out2 For `Impute.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to return a data
+#' frame. For `Impute.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or `"df"` to return a
+#' data frame; setting `"coin"` is not permitted because that would drop the unbalanced metadata.
 #' @param write_to Optional character string for naming the data set in the coin. Data will be written to
 #' `.$Data[[write_to]]`. Default is `write_to == "Imputed"`.
 #' @param disable Logical: if `TRUE` will disable imputation completely and write the unaltered data set. This option is mainly useful
@@ -189,7 +190,9 @@ Impute.purse <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_by = "colu
 #' after imputation has been applied. Set `FALSE` to suppress these warnings.
 #' @param ... arguments passed to or from other methods.
 #'
-#' @return An updated coin with imputed data set at `.$Data[[write_to]]`
+#' @return For `Impute.coin()`, an updated `coin` with the imputed data set at `.$Data[[write_to]]` when `out2 = "coin"`,
+#' otherwise a data frame when `out2 = "df"`. For `Impute.unbalanced_coin()`, an updated `unbalanced_coin` when
+#' `out2 = "unbalanced_coin"` or a data frame when `out2 = "df"`.
 #' @export
 #'
 #' @examples

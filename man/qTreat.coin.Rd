@@ -2,6 +2,7 @@
 % Please edit documentation in R/qfuncs.R
 \name{qTreat.coin}
 \alias{qTreat.coin}
+\alias{qTreat.unbalanced_coin}
 \title{Quick outlier treatment of a coin}
 \usage{
 \method{qTreat}{coin}(
@@ -13,9 +14,19 @@
   f2 = "log_CT",
   ...
 )
+
+\method{qTreat}{unbalanced_coin}(
+  x,
+  dset,
+  winmax = 5,
+  skew_thresh = 2,
+  kurt_thresh = 3.5,
+  f2 = "log_CT",
+  ...
+)
 }
 \arguments{
-\item{x}{A coin}
+\item{x}{For \code{qTreat.coin()}, a coin object; for \code{qTreat.unbalanced_coin()} an \code{unbalanced_coin} object.}
 
 \item{dset}{Name of data set to treat for outliers}
 
@@ -30,7 +41,7 @@
 \item{...}{arguments passed to or from other methods.}
 }
 \value{
-An updated coin with treated data set at \code{.$Data$Treated}.
+A coin (or \code{unbalanced_coin}) with treated data set at \code{.$Data$Treated}.
 }
 \description{
 A simplified version of \code{\link[=Treat]{Treat()}} which allows direct access to the default parameters. This has less flexibility,
@@ -51,6 +62,11 @@ The arguments of \code{\link[=qTreat]{qTreat()}} are passed to \code{\link[=Trea
 
 See \code{\link[=Treat]{Treat()}} documentation for more details, and \code{vignette("treat")}.
 }
+\section{Functions}{
+\itemize{
+\item \code{qTreat(unbalanced_coin)}: Wrapper that keeps the unbalanced hierarchy while applying the quick treatment defaults.
+
+}}
 \examples{
 # build example coin
 coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)

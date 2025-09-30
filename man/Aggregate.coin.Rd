@@ -32,7 +32,8 @@
 )
 }
 \arguments{
-\item{x}{For \code{Aggregate.coin()}, a coin object; for \code{Aggregate.unbalanced_coin()} an \code{unbalanced_coin} object.}
+\item{x}{A \code{coin} object for \code{Aggregate.coin()} or an \code{unbalanced_coin} built with \code{\link[=new_unbalanced_coin]{new_unbalanced_coin()}} for
+\code{Aggregate.unbalanced_coin()}.}
 
 \item{dset}{The name of the data set to apply the function to, which should be accessible in \code{.$Data}.}
 
@@ -59,17 +60,18 @@ the number of levels in the index structure, to specify different data availabil
 details. Can also be specified as a logical vector of length \code{n-1}, where \code{n} is
 the number of levels in the index structure.}
 
-\item{out2}{Either \code{"coin"} (default for \code{Aggregate.coin()}) or \code{"unbalanced_coin"} (default for \code{Aggregate.unbalanced_coin()}) to return the updated object, or \code{"df"} to output the aggregated data set.}
+\item{out2}{For \code{Aggregate.coin()}, either \code{"coin"} (default) to return the updated coin or \code{"df"} to output the
+aggregated data set. For \code{Aggregate.unbalanced_coin()}, either \code{"unbalanced_coin"} (default) to retain the class or
+\code{"df"}; using \code{"coin"} is not allowed because placeholders would be lost.}
 
 \item{write_to}{If specified, writes the aggregated data to \code{.$Data[[write_to]]}. Default \code{write_to = "Aggregated"}.}
 
 \item{...}{arguments passed to or from other methods.}
-
-\item{x, dset, f_ag, w, f_ag_para, dat_thresh, by_df, out2, write_to, ...}{See \code{\link[=Aggregate.coin]{Aggregate.coin()}}.}
 }
 \value{
-An updated coin with aggregated data set added at \code{.$Data[[write_to]]} if \code{out2 = "coin"},
-else if \code{out2 = "df"} outputs the aggregated data set as a data frame.
+For \code{Aggregate.coin()}, an updated \code{coin} with aggregated data at \code{.$Data[[write_to]]} when \code{out2 = "coin"},
+or a data frame when \code{out2 = "df"}. For \code{Aggregate.unbalanced_coin()}, an updated \code{unbalanced_coin} when
+\code{out2 = "unbalanced_coin"} or a data frame when \code{out2 = "df"}.
 }
 \description{
 Aggregates a named data set specified by \code{dset} using aggregation function(s) \code{f_ag}, weights \code{w}, and optional

@@ -159,7 +159,8 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'
 #' See also `vignette("normalise")` for more details.
 #'
-#' @param x For `Normalise.coin()`, a coin object; for `Normalise.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x A `coin` object for `Normalise.coin()` or an `unbalanced_coin` created with [new_unbalanced_coin()] for
+#' `Normalise.unbalanced_coin()`.
 #' @param dset A named data set found in `.$Data`
 #' @param global_specs Specifications to apply to all columns, apart from those specified by `indiv_specs`. See details.
 #' @param indiv_specs Specifications applied to specific columns, overriding those specified in `global_specs`.
@@ -168,7 +169,9 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' * `iCode` The indicator code, corresponding to the column names of the data set
 #' * `Direction` numeric vector with entries either `-1` or `1`
 #' If `directions` is not specified, the directions will be taken from the `iMeta` table in the coin, if available.
-#' @param out2 For `Normalise.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to return a data frame. For `Normalise.unbalanced_coin()` the default is `"unbalanced_coin"` and `"coin"` is not permitted; use `"df"` for a data-frame output.
+#' @param out2 For `Normalise.coin()`, either `"coin"` (default) to return the updated coin or `"df"` to return a data
+#' frame. For `Normalise.unbalanced_coin()`, either `"unbalanced_coin"` (default) to retain the class or `"df"` to return
+#' a data frame; setting `"coin"` is not permitted because it would drop the unbalanced metadata.
 #' @param write_to Optional character string for naming the data set in the coin. Data will be written to
 #' `.$Data[[write_to]]`. Default is `write_to == "Normalised"`.
 #' @param write2log Logical: if `FALSE`, the arguments of this function are not written to the coin log, so this
@@ -182,7 +185,9 @@ Normalise.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' # normalise the raw data set
 #' coin <- Normalise(coin, dset = "Raw")
 #'
-#' @return An updated coin (or `unbalanced_coin`).
+#' @return For `Normalise.coin()`, an updated `coin` when `out2 = "coin"` or a data frame when `out2 = "df"`. For
+#' `Normalise.unbalanced_coin()`, an updated `unbalanced_coin` when `out2 = "unbalanced_coin"` or a data frame when
+#' `out2 = "df"`.
 #' @export
 Normalise.coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
                            directions = NULL, out2 = "coin", write_to = NULL,
