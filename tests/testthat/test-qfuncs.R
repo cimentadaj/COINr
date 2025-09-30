@@ -98,3 +98,29 @@ test_that("qTreat",{
   expect_equal(treated_unbal, get_dset(manual_unbal, "Treated"))
 
 })
+
+
+test_that("qNormalise unbalanced coin", {
+
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- qNormalise(coin_unbal, dset = "Raw", f_n = "n_minmax", f_n_para = list(l_u = c(0, 100)))
+
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
+
+  norm_unbal <- get_dset(coin_unbal, "Normalised")
+  expect_setequal(names(norm_unbal), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(norm_unbal) %in% coin_unbal$Meta$Unbalanced$PlaceholderCodes))
+
+  manual <- Normalise(unbal_iData, global_specs = list(f_n = "n_minmax", f_n_para = list(l_u = c(0, 100))))
+  expect_equal(norm_unbal, manual)
+
+  coin_unbal_df <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  norm_df <- qNormalise(coin_unbal_df, dset = "Raw", out2 = "df")
+  expect_setequal(names(norm_df), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(norm_df) %in% coin_unbal_df$Meta$Unbalanced$PlaceholderCodes))
+
+  expect_error(qNormalise(new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE),
+                          dset = "Raw", out2 = "coin"),
+               "Set out2 = 'unbalanced_coin'")
+
+})

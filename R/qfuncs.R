@@ -61,7 +61,7 @@ qNormalise.purse <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(
 #'
 #' See [Normalise()] documentation for more details, and `vignette("normalise")`.
 #'
-#' @param x For `qTreat.coin()`, a coin object; for `qTreat.unbalanced_coin()` an `unbalanced_coin` object.
+#' @param x For `qNormalise.coin()`, a coin object; for `qNormalise.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset Name of data set to normalise
 #' @param f_n Name of a normalisation function (as a string) to apply to each indicator. Default `"n_minmax"`.
 #' @param f_n_para Any further arguments to pass to `f_n`, as a named list.
@@ -69,9 +69,10 @@ qNormalise.purse <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(
 #' * `iCode` The indicator code, corresponding to the column names of the data frame
 #' * `Direction` numeric vector with entries either `-1` or `1`
 #' If `directions` is not specified, the directions will be taken from the `iMeta` table in the coin, if available.
+#' @param out2 For `qNormalise.unbalanced_coin()`, either `"unbalanced_coin"` (default) to return the updated coin or `"df"` for a data frame output. The value `"coin"` is not permitted.
 #' @param ... arguments passed to or from other methods.
 #'
-#' @return An updated coin with normalised data set.
+#' @return A coin (or `unbalanced_coin`) with normalised data set.
 #' @export
 #'
 #' @examples
@@ -94,8 +95,31 @@ qNormalise.coin <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(0
 
   # normalise
   Normalise.coin(coin, dset = dset, global_specs = specs_def,
-                 directions = directions, out2 = "coin", write2log = FALSE)
+                 directions = directions, out2 = "coin", write2log = FALSE, ...)
 
+}
+
+#' @describeIn qNormalise.coin Wrapper that keeps the unbalanced hierarchy while applying the quick normalisation defaults.
+#' @details Compared with [qNormalise.coin()], this method defaults `out2` to `"unbalanced_coin"` and rejects `"coin"`, ensuring placeholder columns are stripped from any outward-facing data.
+#' @export
+qNormalise.unbalanced_coin <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(0,100)),
+                                       directions = NULL, out2 = "unbalanced_coin", ...){
+
+  coin <- write_log(x, dont_write = "x", write2log = TRUE)
+
+  specs_def <- list(f_n = f_n,
+                    f_n_para = f_n_para)
+
+  call <- match.call()
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
+
+  dots <- list(...)
+  args <- c(list(x = coin, dset = dset, global_specs = specs_def,
+                 directions = directions, out2 = out2, write2log = FALSE), dots)
+
+  do.call(Normalise, args)
 }
 
 
@@ -162,6 +186,7 @@ qNormalise.data.frame <- function(x, f_n = "n_minmax", f_n_para = NULL,
 #'
 #' * [qNormalise.data.frame()]
 #' * [qNormalise.coin()]
+#' * [qNormalise.unbalanced_coin()]
 #' * [qNormalise.purse()]
 #'
 #' @param x Object to be normalised
