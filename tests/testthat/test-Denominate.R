@@ -54,3 +54,36 @@ test_that("Denom.coin", {
   expect_equal(xd, xd2)
 
 })
+
+
+test_that("Denominate unbalanced coin", {
+
+  denoms <- data.frame(
+    uCode = unbal_iData$uCode,
+    DenSub = c(2, 4, 5),
+    DenB = c(10, 12, 15)
+  )
+
+  denomby <- data.frame(
+    iCode = c("IndA1", "IndA2", "IndB"),
+    Denominator = c("DenSub", "DenSub", "DenB"),
+    ScaleFactor = 1
+  )
+
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Denominate(coin_unbal, dset = "Raw", denoms = denoms,
+                           denomby = denomby, write_to = "Denom_unbal")
+
+  denom_dset <- get_dset(coin_unbal, "Denom_unbal")
+  denom_manual <- Denominate(unbal_iData, denoms = denoms, denomby = denomby)
+
+  expect_equal(denom_dset, denom_manual)
+  expect_setequal(names(denom_dset), c("uCode", "IndA1", "IndA2", "IndB"))
+
+  coin_unbal_df <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  denom_df <- Denominate(coin_unbal_df, dset = "Raw", denoms = denoms,
+                          denomby = denomby, out2 = "df")
+
+  expect_setequal(names(denom_df), c("uCode", "IndA1", "IndA2", "IndB"))
+
+})

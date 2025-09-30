@@ -253,6 +253,36 @@ Aggregate.unbalanced_coin <- function(x, dset, ...){
   res
 }
 
+
+#' @export
+Denominate.unbalanced_coin <- function(x, dset, ...){
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  call <- match.call()
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "coin"
+  write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
+  if(is.null(write_to_name)){
+    write_to_name <- "Denominated"
+  }
+
+  res <- NextMethod()
+
+  if(length(placeholders) == 0){
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    keep <- setdiff(names(res), placeholders)
+    res <- res[keep]
+    return(res)
+  }
+
+  if(!is.null(res$Data[[write_to_name]])){
+    keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
+    res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+  res
+}
+
 #' @export
 Screen.unbalanced_coin <- function(x, dset, ...){
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
