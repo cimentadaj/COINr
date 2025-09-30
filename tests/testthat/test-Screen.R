@@ -63,3 +63,30 @@ test_that("screen_coin", {
   expect_equal(dset, dset2$ScreenedData)
 
 })
+
+
+test_that("screen_unbalanced_coin", {
+
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Screen(coin_unbal, dset = "Raw", unit_screen = "byNA",
+                       dat_thresh = 0.9,
+                       Force = data.frame(uCode = "U3", Include = FALSE),
+                       write_to = "scr_unbal")
+
+  screened <- get_dset(coin_unbal, dset = "scr_unbal")
+  manual <- Screen(unbal_iData, id_col = "uCode", unit_screen = "byNA",
+                   dat_thresh = 0.9,
+                   Force = data.frame(uCode = "U3", Include = FALSE))
+
+  expect_equal(screened, manual$ScreenedData)
+  expect_setequal(names(screened), c("uCode", "IndA1", "IndA2", "IndB"))
+
+  coin_unbal2 <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  screened_list <- Screen(coin_unbal2, dset = "Raw", unit_screen = "byNA",
+                          dat_thresh = 0.9,
+                          Force = data.frame(uCode = "U3", Include = FALSE),
+                          out2 = "list")
+
+  expect_setequal(names(screened_list$ScreenedData), c("uCode", "IndA1", "IndA2", "IndB"))
+
+})
