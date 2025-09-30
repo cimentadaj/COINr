@@ -218,3 +218,29 @@ test_that("Warning when NAs found after imputation", {
   expect_no_warning(Impute(coin, dset = "Raw", f_i = "NA_imputer", warn_on_NAs = FALSE))
 
 })
+
+
+test_that("Impute unbalanced coin", {
+
+  idata_na <- unbal_iData
+  idata_na$IndA1[2] <- NA
+  idata_na$IndB[3] <- NA
+
+  coin_unbal <- new_unbalanced_coin(idata_na, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Impute(coin_unbal, dset = "Raw", f_i = "i_mean", write_to = "Imputed_unbal")
+
+  imputed <- get_dset(coin_unbal, "Imputed_unbal")
+  expect_setequal(names(imputed), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(anyNA(imputed))
+
+  mean_A1 <- mean(unbal_iData$IndA1[c(1, 3)])
+  mean_B <- mean(unbal_iData$IndB[c(1, 2)])
+  expect_equal(imputed$IndA1[2], mean_A1)
+  expect_equal(imputed$IndB[3], mean_B)
+
+  coin_unbal_df <- new_unbalanced_coin(idata_na, unbal_iMeta, quietly = TRUE)
+  imputed_df <- Impute(coin_unbal_df, dset = "Raw", f_i = "i_mean", out2 = "df")
+
+  expect_setequal(names(imputed_df), c("uCode", "IndA1", "IndA2", "IndB"))
+
+})
