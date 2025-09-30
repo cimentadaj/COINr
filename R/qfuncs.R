@@ -61,7 +61,7 @@ qNormalise.purse <- function(x, dset, f_n = "n_minmax", f_n_para = list(l_u = c(
 #'
 #' See [Normalise()] documentation for more details, and `vignette("normalise")`.
 #'
-#' @param x A coin
+#' @param x For `qTreat.coin()`, a coin object; for `qTreat.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset Name of data set to normalise
 #' @param f_n Name of a normalisation function (as a string) to apply to each indicator. Default `"n_minmax"`.
 #' @param f_n_para Any further arguments to pass to `f_n`, as a named list.
@@ -231,7 +231,7 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
 #'
 #' See [Treat()] documentation for more details, and `vignette("treat")`.
 #'
-#' @param x A coin
+#' @param x For `qTreat.coin()`, a coin object; for `qTreat.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset Name of data set to treat for outliers
 #' @param winmax Maximum number of points to Winsorise for each indicator. Default 5.
 #' @param skew_thresh Absolute skew threshold - default 2.
@@ -239,7 +239,7 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
 #' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"log_CT"`.
 #' @param ... arguments passed to or from other methods.
 #'
-#' @return An updated coin with treated data set at `.$Data$Treated`.
+#' @return A coin (or `unbalanced_coin`) with treated data set at `.$Data$Treated`.
 #' @export
 #'
 #' @examples
@@ -266,6 +266,25 @@ qTreat.coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
 
   # treat (note, don't write to log here since it has been written by qTreat)
   Treat.coin(coin, dset = dset, global_specs = global_specs, out2 = "coin", write2log = FALSE)
+}
+
+#' @describeIn qTreat.coin Wrapper that keeps the unbalanced hierarchy while applying the quick treatment defaults.
+#' @export
+qTreat.unbalanced_coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
+                                   f2 = "log_CT", ...){
+
+  coin <- write_log(x, dont_write = "x", write2log = TRUE)
+
+  global_specs <- list(f1 = "winsorise",
+                       f1_para = list(winmax = winmax,
+                                      skew_thresh = skew_thresh,
+                                      kurt_thresh = kurt_thresh),
+                       f2 = f2,
+                       f_pass_para = list(skew_thresh = skew_thresh,
+                                          kurt_thresh = kurt_thresh))
+
+  Treat(coin, dset = dset, global_specs = global_specs,
+        out2 = "unbalanced_coin", write2log = FALSE)
 }
 
 
@@ -332,6 +351,7 @@ qTreat.data.frame <- function(x, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
 #'
 #' * [qTreat.data.frame()]
 #' * [qTreat.coin()]
+#' * [qTreat.unbalanced_coin()]
 #' * [qTreat.purse()]
 #'
 #' @param x Object to be normalised.

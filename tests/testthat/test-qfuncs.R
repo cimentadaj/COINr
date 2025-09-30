@@ -84,4 +84,17 @@ test_that("qTreat",{
 
   }
 
+  # UNBALANCED COIN METHOD
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  coin_unbal_qt <- qTreat(coin_unbal, dset = "Raw", winmax = 3)
+  expect_s3_class(coin_unbal_qt, c("unbalanced_coin", "coin"))
+
+  treated_unbal <- get_dset(coin_unbal_qt, "Treated")
+  expect_setequal(names(treated_unbal), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(treated_unbal) %in% coin_unbal_qt$Meta$Unbalanced$PlaceholderCodes))
+
+  manual_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  manual_unbal <- Treat(manual_unbal, dset = "Raw", global_specs = list(f1_para = list(winmax = 3)))
+  expect_equal(treated_unbal, get_dset(manual_unbal, "Treated"))
+
 })
