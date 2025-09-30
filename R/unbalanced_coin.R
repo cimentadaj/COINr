@@ -381,6 +381,60 @@ Denominate.unbalanced_coin <- function(x, dset, denoms = NULL, denomby = NULL, d
   res
 }
 
+#' @param x,dset,global_specs,indiv_specs,combine_treat,out2,write_to,write2log,disable,... See [Treat.coin()].
+#' @describeIn Treat.coin Wrapper that retains the unbalanced structure.
+#' @details Compared with [Treat.coin()], this method keeps the unbalanced metadata perspective, strips placeholder nodes from returned data, and forbids `out2 = "coin"` to preserve the `unbalanced_coin` class.
+#' @examplesIf requireNamespace("COINr", quietly = TRUE)
+#' data("unbal_iData", package = "COINr")
+#' data("unbal_iMeta", package = "COINr")
+#' unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+#' Treat(unbal, dset = "Raw")
+#' @export
+Treat.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
+                                  combine_treat = FALSE, out2 = "unbalanced_coin", write_to = NULL,
+                                  write2log = TRUE, disable = FALSE, ...) {
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  call <- match.call()
+  out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
+  if(identical(out2, "coin"))
+    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'list' for analysis outputs.")
+  next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
+  write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
+  if(is.null(write_to_name)){
+    write_to_name <- "Treated"
+  }
+
+  res <- NextMethod(out2 = next_out2)
+
+  if(length(placeholders) == 0){
+    if(identical(out2, "unbalanced_coin") && inherits(res, "coin")) res <- .ensure_unbalanced_class(res)
+    return(res)
+  }
+
+  if(is.list(res) && !inherits(res, "coin")){
+    if(!is.null(res$x_treat)){
+      keep <- setdiff(names(res$x_treat), placeholders)
+      res$x_treat <- res$x_treat[keep]
+    }
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    res <- res[setdiff(names(res), placeholders)]
+    return(res)
+  }
+
+  if(!is.null(res$Data[[write_to_name]])){
+    keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
+    res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  if(identical(out2, "unbalanced_coin")){
+    res <- .ensure_unbalanced_class(res)
+  }
+  res
+}
+
 #' #' @param x,dset,unit_screen,dat_thresh,nonzero_thresh,Force,out2,write_to,... See [Screen.coin()].
 #' @describeIn Screen.coin Wrapper that retains the unbalanced structure.
 #' @details This method mirrors [Screen.coin()] but restores lineage/max-level for unbalanced hierarchies and rejects `out2 = "coin"`. Placeholder nodes are removed from all outward-facing outputs.
@@ -432,4 +486,3 @@ Screen.unbalanced_coin <- function(x, dset, unit_screen, dat_thresh = NULL, nonz
   }
   res
 }
-

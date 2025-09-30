@@ -185,7 +185,7 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'
 #' See also `vignette("treat")`.
 #'
-#' @param x A coin
+#' @param x For `Treat.coin()`, a coin object; for `Treat.unbalanced_coin()` an `unbalanced_coin` object.
 #' @param dset A named data set available in `.$Data`
 #' @param global_specs A list specifying the treatment to apply to all columns. This will be applied to all columns, except any
 #' that are specified in the `indiv_specs` argument. Alternatively, set to `"none"` to apply no treatment. See details.
@@ -194,8 +194,9 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' @param combine_treat By default, if `f1` fails to pass `f_pass`, then `f2` is applied to the original `x`,
 #' rather than the treated output of `f1`. If `combine_treat = TRUE`, `f2` will instead be applied to the output
 #' of `f1`, so the two treatments will be combined.
-#' @param out2 The type of function output: either `"coin"` to return an updated coin, or `"list"` to return a
-#' list with treated data and treatment details.
+#' @param out2 For `Treat.coin()`, either `"coin"` (default) to return an updated coin or `"list"` to return
+#' treatment details. For `Treat.unbalanced_coin()` the default is `"unbalanced_coin"` and `"coin"` is not
+#' permitted; use `"list"` to return treatment details without modifying the object.
 #' @param write2log Logical: if `FALSE`, the arguments of this function are not written to the coin log, so this
 #' function will not be invoked when regenerating. Recommend to keep `TRUE` unless you have a good reason to do otherwise.
 #' @param write_to If specified, writes the aggregated data to `.$Data[[write_to]]`. Default `write_to = "Treated"`.
@@ -802,6 +803,7 @@ Treat.numeric <- function(x, f1, f1_para = NULL, f2 = NULL, f2_para = NULL,
 #' * [Treat.numeric()]
 #' * [Treat.data.frame()]
 #' * [Treat.coin()]
+#' * [Treat.unbalanced_coin()]
 #' * [Treat.purse()]
 #'
 #' See also `vignette("treat")`.

@@ -91,3 +91,38 @@ test_that("disable_treat", {
   expect_equal(d1, d2)
 
 })
+
+test_that("Treat unbalanced coin", {
+
+  idata_mod <- unbal_iData
+  idata_mod$IndA1[2] <- 150
+
+  specs <- list(f1 = "winsorise", f1_para = list(winmax = 2))
+
+  manual <- Treat(idata_mod, global_specs = specs)
+
+  coin_unbal <- new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Treat(coin_unbal, dset = "Raw", global_specs = specs,
+                      write_to = "Treated_unbal", write2log = FALSE)
+
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
+
+  treated <- get_dset(coin_unbal, "Treated_unbal")
+  expect_setequal(names(treated), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_equal(treated, manual$x_treat)
+
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  expect_false(any(names(treated) %in% placeholders))
+
+  coin_unbal_list <- new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE)
+  treat_list <- Treat(coin_unbal_list, dset = "Raw", global_specs = specs,
+                      out2 = "list", write2log = FALSE)
+
+  expect_setequal(names(treat_list$x_treat), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(treat_list$x_treat) %in% coin_unbal_list$Meta$Unbalanced$PlaceholderCodes))
+
+  expect_error(Treat(new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE),
+                     dset = "Raw", out2 = "coin"),
+               "Set out2 = 'unbalanced_coin'")
+
+})
