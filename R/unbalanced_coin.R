@@ -479,6 +479,32 @@ get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cor
 }
 
 
+#' @rdname get_noisy_weights
+#' @export
+get_noisy_weights.unbalanced_coin <- function(w, noise_specs, Nrep, ...){
+  coin <- w
+  stopifnot(inherits(coin, "unbalanced_coin"))
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholder_set <- placeholders[!is.na(placeholders)]
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  weight_df <- base_coin$Meta$Weights$Original
+
+  noisy <- get_noisy_weights.data.frame(weight_df, noise_specs = noise_specs, Nrep = Nrep, ...)
+
+  if(length(placeholder_set) == 0){
+    return(noisy)
+  }
+
+  lapply(noisy, function(df){
+    df[!(df$iCode %in% placeholder_set), , drop = FALSE]
+  })
+}
+
+
 #' @rdname get_data.coin
 #' @export
 get_data.unbalanced_coin <- function(x, ...){

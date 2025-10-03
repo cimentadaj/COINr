@@ -909,13 +909,26 @@ plot_sensitivity <- function(SAresults, ptype = "bar"){
 #' # examine one of the noisy weight sets, last few rows
 #' tail(noisy_wts[[1]])
 #'
+#' @details
+#' When the nominal weights come from an object inheriting from `unbalanced_coin`,
+#' `get_noisy_weights()` delegates to the balanced representation and removes any
+#' placeholder helper nodes from each generated weight set so that only genuine
+#' indicators and aggregates are present in the output.
+#' @param ... Additional arguments passed to class-specific implementations.
+#'
 #' @return A list of `Nrep` sets of weights (data frames).
 #'
 #' @seealso
 #' * [get_sensitivity()] Perform global sensitivity or uncertainty analysis on a COIN
 #'
 #' @export
-get_noisy_weights <- function(w, noise_specs, Nrep){
+get_noisy_weights <- function(w, ...){
+  UseMethod("get_noisy_weights")
+}
+
+#' @rdname get_noisy_weights
+#' @export
+get_noisy_weights.data.frame <- function(w, noise_specs, Nrep, ...){
 
   # CHECKS
 

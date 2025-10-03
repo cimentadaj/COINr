@@ -118,3 +118,37 @@ test_that("noisy_weights", {
   })))
 
 })
+
+test_that("get_noisy_weights.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  noise_specs <- data.frame(Level = c(2, 3), NoiseFactor = c(0.25, 0.25))
+
+  set.seed(123)
+  noisy <- get_noisy_weights(unbal, noise_specs = noise_specs, Nrep = 5)
+  expect_type(noisy, "list")
+  expect_length(noisy, 5)
+  expect_true(all(vapply(noisy, is.data.frame, logical(1))))
+  if(length(ph_codes) > 0){
+    expect_true(all(vapply(noisy, function(df){
+      !any(df$iCode %in% ph_codes)
+    }, logical(1))))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  set.seed(123)
+  noisy_bal <- get_noisy_weights.data.frame(balanced$Meta$Weights$Original,
+                                            noise_specs = noise_specs, Nrep = 5)
+  if(length(ph_codes) > 0){
+    noisy_bal <- lapply(noisy_bal, function(df){
+      df[!(df$iCode %in% ph_codes), , drop = FALSE]
+    })
+  }
+
+  expect_equal(noisy, noisy_bal)
+})
