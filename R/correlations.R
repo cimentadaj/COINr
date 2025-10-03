@@ -6,7 +6,13 @@
 #' If an indicator is strongly correlated with a denominator, this may suggest to denominate it by that
 #' denominator.
 #'
+#' When `coin` inherits from `unbalanced_coin`, `get_denom_corr()` delegates to the balanced
+#' implementation after removing placeholder metadata introduced to patch the hierarchy. Any placeholder
+#' indicators or denominators are stripped from the returned table so only genuine codes appear, mirroring
+#' the behaviour of other `get_*` helpers for unbalanced coins.
+#'
 #' @param coin A coin class object.
+#' @param ... Additional arguments passed to class-specific implementations.
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param cor_thresh A correlation threshold: the absolute value of any correlations between indicator-denominator pairs above this
 #' threshold will be flagged.
@@ -26,8 +32,14 @@
 #' # get correlations >0.7 of any indicator with denominators
 #' get_denom_corr(coin, dset = "Raw", cor_thresh = 0.7)
 #'
-get_denom_corr <- function(coin, dset, cor_thresh = 0.6, cortype = "pearson",
-                           nround = 2, use_directions = FALSE){
+get_denom_corr <- function(coin, dset, ...){
+  UseMethod("get_denom_corr")
+}
+
+#' @rdname get_denom_corr
+#' @export
+get_denom_corr.coin <- function(coin, dset, cor_thresh = 0.6, cortype = "pearson",
+                           nround = 2, use_directions = FALSE, ...){
 
   # indicator data
   # get everything at this point to ensure matching rows

@@ -170,6 +170,46 @@ test_that("get_corr_flags.unbalanced_coin strips placeholders", {
   expect_equal(flags, flags_bal)
 })
 
+test_that("get_denom_corr.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  aug_data <- unbal_iData
+  aug_data$DenSub <- c(2, 4, 5)
+  aug_data$DenB <- c(10, 12, 15)
+
+  denom_meta <- data.frame(
+    iCode = c("DenSub", "DenB"),
+    Level = NA_integer_,
+    Parent = NA_character_,
+    Direction = NA_integer_,
+    Weight = NA_real_,
+    Type = "Denominator",
+    stringsAsFactors = FALSE
+  )
+
+  aug_meta <- rbind(unbal_iMeta, denom_meta)
+
+  unbal <- new_unbalanced_coin(aug_data, aug_meta, quietly = TRUE)
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  den_corr <- get_denom_corr(unbal, dset = "Raw", cor_thresh = 0)
+  if(nrow(den_corr) > 0){
+    expect_false(any(den_corr$Ind %in% ph_codes))
+    expect_false(any(den_corr$Denom %in% ph_codes))
+  }
+
+  balanced_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  den_corr_bal <- get_denom_corr.coin(balanced_coin, dset = "Raw", cor_thresh = 0)
+  if(length(ph_codes) > 0 && nrow(den_corr_bal) > 0){
+    drop_idx <- den_corr_bal$Ind %in% ph_codes | den_corr_bal$Denom %in% ph_codes
+    den_corr_bal <- den_corr_bal[!drop_idx, , drop = FALSE]
+  }
+
+  expect_equal(den_corr, den_corr_bal)
+})
+
 test_that("pvals", {
 
   # a matrix of random numbers, 3 cols
