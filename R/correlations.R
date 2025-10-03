@@ -592,8 +592,20 @@ get_pvals = function(X, ...) {
 #'
 #' @return Cronbach alpha as a numerical value.
 #'
+#' @details
+#' For `unbalanced_coin` objects the method delegates to the standard implementation on the
+#' internally balanced hierarchy after stripping placeholder nodes from the metadata and any
+#' intermediate results. This prevents helper nodes (see [new_unbalanced_coin()]) from affecting the
+#' statistic while leaving the numeric outcome unchanged relative to the balanced representation.
+#'
 #' @export
-get_cronbach <- function(coin, dset, iCodes, Level, ..., use = "pairwise.complete.obs"){
+get_cronbach <- function(coin, ...){
+  UseMethod("get_cronbach")
+}
+
+#' @rdname get_cronbach
+#' @export
+get_cronbach.coin <- function(coin, dset, iCodes, Level, ..., use = "pairwise.complete.obs"){
 
   # get data
   iData <- get_data(coin, dset = dset, iCodes = iCodes, Level = Level, ...)
@@ -616,4 +628,19 @@ get_cronbach <- function(coin, dset, iCodes, Level, ..., use = "pairwise.complet
   # calculate Cronbach alpha
   (k^2 * sigav)/sigall
 
+}
+
+#' @rdname get_cronbach
+#' @export
+get_cronbach.unbalanced_coin <- function(coin, ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  get_cronbach.coin(base_coin, ...)
 }

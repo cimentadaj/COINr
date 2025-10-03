@@ -2,12 +2,20 @@
 % Please edit documentation in R/correlations.R
 \name{get_cronbach}
 \alias{get_cronbach}
+\alias{get_cronbach.coin}
+\alias{get_cronbach.unbalanced_coin}
 \title{Cronbach's alpha}
 \usage{
-get_cronbach(coin, dset, iCodes, Level, ..., use = "pairwise.complete.obs")
+get_cronbach(coin, ...)
+
+\method{get_cronbach}{coin}(coin, dset, iCodes, Level, ..., use = "pairwise.complete.obs")
+
+\method{get_cronbach}{unbalanced_coin}(coin, ...)
 }
 \arguments{
 \item{coin}{A coin or a data frame containing only numerical columns of data.}
+
+\item{...}{Further arguments passed to \code{\link[=get_data]{get_data()}}, other than those explicitly specified here.}
 
 \item{dset}{The name of the data set to apply the function to, which should be accessible in \code{.$Data}.}
 
@@ -15,8 +23,6 @@ get_cronbach(coin, dset, iCodes, Level, ..., use = "pairwise.complete.obs")
 the selected data set. See \code{\link[=get_data]{get_data()}}.}
 
 \item{Level}{The level in the hierarchy to extract data from. See \code{\link[=get_data]{get_data()}}.}
-
-\item{...}{Further arguments passed to \code{\link[=get_data]{get_data()}}, other than those explicitly specified here.}
 
 \item{use}{Argument to pass to \link[stats:cor]{stats::cor} to calculate the covariance matrix. Default \code{"pairwise.complete.obs"}.}
 }
@@ -34,6 +40,11 @@ This function simply returns Cronbach's alpha. If you want a lot more details on
 a much more detailed analysis.
 
 This function replaces the now-defunct \code{getCronbach()} from COINr < v1.0.
+
+For \code{unbalanced_coin} objects the method delegates to the standard implementation on the
+internally balanced hierarchy after stripping placeholder nodes from the metadata and any
+intermediate results. This prevents helper nodes (see \code{\link[=new_unbalanced_coin]{new_unbalanced_coin()}}) from affecting the
+statistic while leaving the numeric outcome unchanged relative to the balanced representation.
 }
 \examples{
 # build example coin

@@ -30,5 +30,6 @@ coin <- Screen(coin, dset = "Raw", unit_screen = "byNA", dat_thresh = 0.9)
 
 coin
 
+get_cronbach(coin, dset = "Aggregated", iCodes = "SubA", Level = 2)
 get_corr(coin, dset = "Aggregated", Levels = 2, pval = 0)
 get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 2)

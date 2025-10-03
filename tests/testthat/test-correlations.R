@@ -209,3 +209,24 @@ test_that("cronbach", {
 
   expect_equal(cr1, cr2)
 })
+
+test_that("get_cronbach.unbalanced_coin ignores placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  cron_unbal <- get_cronbach(unbal, dset = "Raw", iCodes = c("IndA1", "IndA2"), Level = 1)
+
+  base_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  cron_bal <- get_cronbach.coin(base_coin, dset = "Raw", iCodes = c("IndA1", "IndA2"), Level = 1)
+
+  if(length(placeholders) > 0){
+    meta_no_ph <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    expect_true(all(c("IndA1", "IndA2") %in% meta_no_ph$iCode))
+  }
+
+  expect_equal(cron_unbal, cron_bal)
+})
