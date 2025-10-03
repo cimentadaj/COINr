@@ -21,4 +21,5 @@
 ^\.github$
 ^codecov\.yml$
 progress.md
+progress_get.md
 tmp_script/
