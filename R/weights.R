@@ -5,10 +5,15 @@
 #' each aggregation that it is involved in, plus the number of indicators/aggregates in each group. The effective weight
 #' is one way of understanding the final contribution of each indicator to the index. See also `vignette("weights")`.
 #'
+#' When `coin` inherits from `unbalanced_coin`, `get_eff_weights()` removes any placeholder codes that were injected to
+#' balance the hierarchy before delegating to the standard implementation. Placeholder nodes are also stripped from the
+#' returned data frame or coin output so that only the genuine indicators and aggregates appear.
+#'
 #' This function replaces the now-defunct `effectiveWeight()` from COINr < v1.0.
 #'
 #' @param coin A coin class object
 #' @param out2 Either `"coin"` or `"df"`
+#' @param ... Additional arguments passed to class-specific implementations.
 #'
 #' @examples
 #' # build example coin
@@ -22,7 +27,13 @@
 #' @return Either an iMeta data frame with effective weights as an added column, or an updated coin with effective
 #' weights added to `.$Meta$Ind`.
 #' @export
-get_eff_weights <-  function(coin, out2 = "df"){
+get_eff_weights <-  function(coin, out2 = "df", ...){
+  UseMethod("get_eff_weights")
+}
+
+#' @rdname get_eff_weights
+#' @export
+get_eff_weights.coin <-  function(coin, out2 = "df", ...){
 
 
   # PREP --------------------------------------------------------------------

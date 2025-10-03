@@ -355,7 +355,7 @@ get_corr.unbalanced_coin <- function(coin, ...){
   }
   base_coin <- structure(coin, class = base_classes)
   if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[!(base_coin$Meta$Ind$iCode %in% placeholders), , drop = FALSE]
   }
   res <- get_corr.coin(base_coin, ...)
   .strip_placeholder_corr(res, placeholders)
@@ -372,13 +372,42 @@ get_denom_corr.unbalanced_coin <- function(coin, dset, ...){
   }
   base_coin <- structure(coin, class = base_classes)
   if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[!(base_coin$Meta$Ind$iCode %in% placeholders), , drop = FALSE]
   }
   res <- get_denom_corr.coin(base_coin, dset = dset, ...)
   if(length(placeholders) > 0 && is.data.frame(res)){
     drop_idx <- res$Ind %in% placeholders | res$Denom %in% placeholders
     res <- res[!drop_idx, , drop = FALSE]
   }
+  res
+}
+
+
+#' @rdname get_eff_weights
+#' @export
+get_eff_weights.unbalanced_coin <- function(coin, out2 = "df", ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  res <- get_eff_weights.coin(base_coin, out2 = out2, ...)
+
+  if(identical(out2, "df")){
+    if(length(placeholders) > 0 && is.data.frame(res)){
+      res <- res[!(res$iCode %in% placeholders), , drop = FALSE]
+    }
+    return(res)
+  }
+
+  if(identical(out2, "coin")){
+    if(length(placeholders) > 0 && !is.null(res$Meta$Ind)){
+      res$Meta$Ind <- res$Meta$Ind[!(res$Meta$Ind$iCode %in% placeholders), , drop = FALSE]
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
   res
 }
 
