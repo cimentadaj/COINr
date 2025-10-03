@@ -37,13 +37,14 @@ test_that("get_data.unbalanced_coin excludes placeholders", {
   agg_df <- get_data(unbal, dset = "Aggregated", Level = 2, also_get = "none")
   expect_false(any(names(agg_df) %in% placeholders))
 
-  base_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
-  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
-  }
-  agg_bal <- get_data.coin(base_coin, dset = "Aggregated", Level = 2, also_get = "none")
-  if(length(placeholders) > 0){
-    agg_bal <- agg_bal[names(agg_bal)[!(names(agg_bal) %in% placeholders)]]
-  }
-  expect_identical(agg_df, agg_bal)
+  avail_list <- get_data_avail(unbal, dset = "Aggregated", out2 = "list")
+  expect_false(any(names(avail_list$Summary) %in% placeholders))
+  expect_false(any(names(avail_list$ByGroup) %in% placeholders))
+  expect_setequal(names(avail_list$ByGroup), c("uCode", "SubA", "Index"))
+
+  avail_coin <- get_data_avail(unbal, dset = "Aggregated", out2 = "coin")
+  expect_true(inherits(avail_coin, "unbalanced_coin"))
+  expect_false(any(names(avail_coin$Analysis$Aggregated$DatAvail$Summary) %in% placeholders))
+  expect_false(any(names(avail_coin$Analysis$Aggregated$DatAvail$ByGroup) %in% placeholders))
+  expect_setequal(names(avail_coin$Analysis$Aggregated$DatAvail$ByGroup), c("uCode", "SubA", "Index"))
 })

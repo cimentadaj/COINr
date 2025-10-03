@@ -109,6 +109,33 @@
   res
 }
 
+.sanitize_lineage <- function(lineage, placeholders){
+  if(is.null(lineage) || length(placeholders) == 0){
+    return(lineage)
+  }
+  lineage <- lineage[!is.na(lineage[[1]]) & !(lineage[[1]] %in% placeholders), , drop = FALSE]
+  lineage[] <- lapply(lineage, function(col){
+    col[col %in% placeholders] <- NA_character_
+    col
+  })
+  if(ncol(lineage) > 1){
+    for(j in 2:ncol(lineage)){
+      na_idx <- is.na(lineage[[j]])
+      lineage[[j]][na_idx] <- lineage[[j-1]][na_idx]
+    }
+    keep <- rep(TRUE, ncol(lineage))
+    for(j in 2:ncol(lineage)){
+      same_as_prev <- identical(lineage[[j]], lineage[[j-1]])
+      if(same_as_prev){
+        keep[j] <- FALSE
+      }
+    }
+    lineage <- lineage[keep]
+  }
+  keep_cols <- vapply(lineage, function(col) any(!is.na(col)), logical(1))
+  lineage[keep_cols]
+}
+
 # helper to balance metadata by inserting placeholders
 .balance_metadata <- function(meta){
   meta$Parent[meta$Parent == ""] <- NA_character_
@@ -347,6 +374,7 @@ get_data.unbalanced_coin <- function(x, ...){
   if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
     base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
   }
+  base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   res <- get_data.coin(base_coin, ...)
   if(length(placeholders) > 0 && is.data.frame(res)){
     keep <- names(res)[!(names(res) %in% placeholders)]
@@ -373,6 +401,61 @@ get_corr_flags.unbalanced_coin <- function(coin, ...){
     drop_idx <- res$Ind1 %in% placeholders | res$Ind2 %in% placeholders
     res <- res[!drop_idx, , drop = FALSE]
   }
+  res
+}
+
+
+#' @rdname get_data_avail
+#' @export
+get_data_avail.unbalanced_coin <- function(x, dset, out2 = "coin", ...){
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(x), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(x, class = base_classes)
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+  res <- get_data_avail.coin(base_coin, dset = dset, out2 = out2, ...)
+
+  strip_placeholders <- function(df){
+    if(!is.data.frame(df) || length(placeholders) == 0){
+      return(df)
+    }
+    keep <- names(df)[!(names(df) %in% placeholders)]
+    df <- df[keep]
+    base_names <- sub("\\.\\d+$", "", names(df))
+    df[, !duplicated(base_names), drop = FALSE]
+  }
+
+  if(identical(out2, "list")){
+    if(is.list(res) && length(placeholders) > 0){
+      if(!is.null(res$Summary)){
+        res$Summary <- strip_placeholders(res$Summary)
+      }
+      if(!is.null(res$ByGroup)){
+        res$ByGroup <- strip_placeholders(res$ByGroup)
+      }
+    }
+    return(res)
+  }
+
+  if(identical(out2, "coin")){
+    if(length(placeholders) > 0 && !is.null(res$Analysis[[dset]][["DatAvail"]])){
+      dat_avail <- res$Analysis[[dset]][["DatAvail"]]
+      if(!is.null(dat_avail$Summary)){
+        dat_avail$Summary <- strip_placeholders(dat_avail$Summary)
+      }
+      if(!is.null(dat_avail$ByGroup)){
+        dat_avail$ByGroup <- strip_placeholders(dat_avail$ByGroup)
+      }
+      res$Analysis[[dset]][["DatAvail"]] <- dat_avail
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
   res
 }
 

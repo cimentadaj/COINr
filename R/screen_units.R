@@ -306,6 +306,10 @@ get_data_avail <- function(x, ...){
 #'
 #' See also vignettes: `vignette("analysis")` and `vignette("imputation")`.
 #'
+#' For coins constructed with [new_unbalanced_coin()], this method delegates to the balanced
+#' implementation and then removes any placeholder columns from both the summary and by-group
+#' availability tables before returning.
+#'
 #' @param x For `Screen.coin()`, a coin; for `Screen.unbalanced_coin()`, an `unbalanced_coin`.
 
 #' @param dset String indicating name of data set in `.$Data`.
@@ -314,6 +318,7 @@ get_data_avail <- function(x, ...){
 #'
 #' @return An updated coin with data availability tables written in `.$Analysis[[dset]]`, or a
 #' list of data availability tables.
+#' @rdname get_data_avail
 #' @export
 #'
 #' @examples

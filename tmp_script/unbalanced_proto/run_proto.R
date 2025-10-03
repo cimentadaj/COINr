@@ -33,3 +33,5 @@ coin
 get_cronbach(coin, dset = "Aggregated", iCodes = "SubA", Level = 2)
 get_corr(coin, dset = "Aggregated", Levels = 2, pval = 0)
 get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 2)
+get_data(coin, dset = "Aggregated", Level = 2, also_get = "none")
+get_data_avail(coin, dset = "Aggregated", out2 = "list")
