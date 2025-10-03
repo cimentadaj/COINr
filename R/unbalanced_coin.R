@@ -72,6 +72,43 @@
   code
 }
 
+.strip_placeholder_corr <- function(res, placeholders){
+  if(is.null(placeholders) || length(placeholders) == 0){
+    return(res)
+  }
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0){
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    var_cols <- intersect(names(res), c("Var1", "Var2"))
+    if(length(var_cols) == 0 && ncol(res) >= 2){
+      var_cols <- names(res)[1:min(2, ncol(res))]
+    }
+    if(length(var_cols) > 0){
+      drop_idx <- rep(FALSE, nrow(res))
+      for(col in var_cols){
+        drop_idx <- drop_idx | (res[[col]] %in% placeholders)
+      }
+      res <- res[!drop_idx, , drop = FALSE]
+    }
+    return(res)
+  }
+
+  if(is.matrix(res)){
+    if(!is.null(rownames(res))){
+      res <- res[!(rownames(res) %in% placeholders), , drop = FALSE]
+    }
+    if(!is.null(colnames(res))){
+      res <- res[, !(colnames(res) %in% placeholders), drop = FALSE]
+    }
+    return(res)
+  }
+
+  res
+}
+
 # helper to balance metadata by inserting placeholders
 .balance_metadata <- function(meta){
   meta$Parent[meta$Parent == ""] <- NA_character_
@@ -281,6 +318,24 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
 
 
 
+#' @rdname get_corr
+#' @export
+get_corr.unbalanced_coin <- function(coin, ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  res <- get_corr.coin(base_coin, ...)
+  .strip_placeholder_corr(res, placeholders)
+}
+
+
+#' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
 #' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
 #' @details In addition to the behaviour of [Impute.coin()], this method keeps the unbalanced metadata view and rejects `out2 = "coin"` to avoid dropping the `unbalanced_coin` class.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)

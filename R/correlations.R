@@ -228,6 +228,13 @@ get_corr_flags <- function(coin, dset, cor_thresh = 0.9, thresh_type = "high", c
 #'
 #' This function replaces the now-defunct `getCorr()` from COINr < v1.0.
 #'
+#' @details
+#' When applied to an object of class `unbalanced_coin`, `get_corr()` calls the standard
+#' implementation on the internally balanced hierarchy and then removes any placeholder nodes
+#' that were inserted during construction (see [new_unbalanced_coin()]). The returned correlations
+#' therefore only involve the genuine indicators and aggregates present in the original
+#' unbalanced metadata, while remaining numerically consistent with the balanced view.
+#'
 #' @param coin A coin class coin object
 #' @param dset  The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param iCodes An optional list of character vectors where the first entry specifies the indicator/aggregate
@@ -271,9 +278,15 @@ get_corr_flags <- function(coin, dset, cor_thresh = 0.9, thresh_type = "high", c
 #' * [plot_corr()] Plot correlation matrices of indicator subsets
 #'
 #' @export
-get_corr <- function(coin, dset, iCodes = NULL, Levels = NULL, ...,
-                     cortype = "pearson", pval = 0.05, withparent = FALSE,
-                     grouplev = NULL, make_long = TRUE, use_directions = FALSE){
+get_corr <- function(coin, ...){
+  UseMethod("get_corr")
+}
+
+#' @rdname get_corr
+#' @export
+get_corr.coin <- function(coin, dset, iCodes = NULL, Levels = NULL, ...,
+                          cortype = "pearson", pval = 0.05, withparent = FALSE,
+                          grouplev = NULL, make_long = TRUE, use_directions = FALSE){
 
   # CHECKS ------------------------------------------------------------------
 

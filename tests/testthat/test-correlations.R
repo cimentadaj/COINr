@@ -107,6 +107,45 @@ test_that("get_corr", {
 
 })
 
+test_that("get_corr.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+
+  # raw level correlations should only involve the original indicators
+  cr_raw <- get_corr(unbal, dset = "Raw", Levels = 1, pval = 0)
+  expect_true(all(cr_raw$Var1 %in% unbal_iMeta$iCode[unbal_iMeta$Type == "Indicator"]))
+  expect_true(all(cr_raw$Var2 %in% unbal_iMeta$iCode[unbal_iMeta$Type == "Indicator"]))
+
+  # aggregated level correlations should only involve true aggregates (no placeholders)
+  unbal_agg <- Aggregate(unbal, dset = "Raw")
+  cr_ag <- get_corr(unbal_agg, dset = "Aggregated", Levels = 2, pval = 0)
+  expect_true(all(cr_ag$Var1 %in% unbal_iMeta$iCode[unbal_iMeta$Type == "Aggregate"]))
+  expect_true(all(cr_ag$Var2 %in% unbal_iMeta$iCode[unbal_iMeta$Type == "Aggregate"]))
+
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+  cr_ag_wide <- get_corr(unbal_agg, dset = "Aggregated", Levels = 2, pval = 0, make_long = FALSE)
+  if(!is.null(rownames(cr_ag_wide))){
+    expect_false(any(rownames(cr_ag_wide) %in% ph_codes))
+  }
+  if(!is.null(colnames(cr_ag_wide))){
+    expect_false(any(colnames(cr_ag_wide) %in% ph_codes))
+  }
+
+  # filtered set should match the balanced coin if we insert placeholders and use get_corr.coin
+  # (sanity check against regression)
+  balanced_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  cr_bal <- get_corr.coin(balanced_coin, dset = "Raw", Levels = 1, pval = 0)
+  if(length(ph_codes) > 0){
+    expect_false(any(ph_codes %in% c(cr_raw$Var1, cr_raw$Var2)))
+    # balanced output still contains placeholders; dropping them should agree with unbalanced result
+    cr_bal <- cr_bal[!(cr_bal$Var1 %in% ph_codes | cr_bal$Var2 %in% ph_codes), , drop = FALSE]
+  }
+  expect_equal(cr_raw, cr_bal)
+})
+
 test_that("pvals", {
 
   # a matrix of random numbers, 3 cols
