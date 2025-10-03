@@ -103,6 +103,10 @@ get_eff_weights.coin <-  function(coin, out2 = "df", ...){
 #' See `vignette("weights")` for more details on the usage of this function and an explanation of the underlying
 #' method. Note that this function calculates correlations without considering statistical significance.
 #'
+#' When the input inherits from `unbalanced_coin`, `get_opt_weights()` delegates to the balanced implementation,
+#' then removes placeholder helper nodes from the outward results so that only genuine indicators and aggregates
+#' are reported.
+#'
 #' This function replaces the now-defunct `weightOpt()` from COINr < v1.0.
 #'
 #' @param coin coin object
@@ -119,6 +123,7 @@ get_eff_weights.coin <-  function(coin, out2 = "df", ...){
 #' creating a new list of weights in `.$Parameters$Weights`. Otherwise if `"list"` outputs to a list (default).
 #' @param dset Name of the aggregated data set found in `coin$Data` which results from calling [Aggregate()].
 #' @param weights_to Name to write the optimised weight set to, if `out2 = "coin"`.
+#' @param ... Additional arguments passed to class-specific implementations.
 #'
 #' @importFrom stats optim
 #'
@@ -143,8 +148,14 @@ get_eff_weights.coin <-  function(coin, out2 = "df", ...){
 #' Else if `out2 = "list"` the same outputs (new weights plus details of optimisation) are wrapped in a list.
 #'
 #' @export
-get_opt_weights <- function(coin, itarg = NULL, dset, Level, cortype = "pearson", optype = "balance",
-                      toler = NULL, maxiter = NULL, weights_to = NULL, out2 = "list"){
+get_opt_weights <- function(coin, ...){
+  UseMethod("get_opt_weights")
+}
+
+#' @rdname get_opt_weights
+#' @export
+get_opt_weights.coin <- function(coin, itarg = NULL, dset, Level, cortype = "pearson", optype = "balance",
+                      toler = NULL, maxiter = NULL, weights_to = NULL, out2 = "list", ...){
 
   # PREP --------------------------------------------------------------------
 

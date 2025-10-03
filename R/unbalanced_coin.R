@@ -412,6 +412,73 @@ get_eff_weights.unbalanced_coin <- function(coin, out2 = "df", ...){
 }
 
 
+#' @rdname get_opt_weights
+#' @export
+get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cortype = "pearson", optype = "balance",
+                                           toler = NULL, maxiter = NULL, weights_to = NULL, out2 = "list", ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholder_set <- placeholders[!is.na(placeholders)]
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  level_codes <- coin$Meta$Weights$Original$iCode[coin$Meta$Weights$Original$Level == Level]
+
+  res <- get_opt_weights.coin(base_coin, itarg = itarg, dset = dset, Level = Level, cortype = cortype,
+                              optype = optype, toler = toler, maxiter = maxiter, weights_to = weights_to,
+                              out2 = out2, ...)
+
+  if(length(placeholder_set) == 0){
+    if(identical(out2, "coin")){
+      res <- .ensure_unbalanced_class(res)
+    }
+    return(res)
+  }
+
+  if(identical(out2, "list")){
+    if(is.list(res)){
+      if(is.data.frame(res$WeightsOpt)){
+        res$WeightsOpt <- res$WeightsOpt[!(res$WeightsOpt$iCode %in% placeholder_set), , drop = FALSE]
+      }
+      if(is.data.frame(res$CorrResultsNorm)){
+        if(length(level_codes) == nrow(res$CorrResultsNorm)){
+          rownames(res$CorrResultsNorm) <- level_codes
+        }
+        keep <- rownames(res$CorrResultsNorm)
+        if(!is.null(keep)){
+          res$CorrResultsNorm <- res$CorrResultsNorm[!(keep %in% placeholder_set), , drop = FALSE]
+        }
+      }
+    }
+    return(res)
+  }
+
+  if(identical(out2, "coin")){
+    weights_name <- weights_to
+    if(is.null(weights_name)){
+      weights_name <- paste0("OptimsedLev", Level)
+    }
+    if(!is.null(res$Analysis$Weights[[weights_name]]$CorrResultsNorm)){
+      df <- res$Analysis$Weights[[weights_name]]$CorrResultsNorm
+      if(is.data.frame(df)){
+        if(length(level_codes) == nrow(df)){
+          rownames(df) <- level_codes
+        }
+        keep <- rownames(df)
+        if(!is.null(keep)){
+          df <- df[!(keep %in% placeholder_set), , drop = FALSE]
+        }
+        res$Analysis$Weights[[weights_name]]$CorrResultsNorm <- df
+      }
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
+  res
+}
+
+
 #' @rdname get_data.coin
 #' @export
 get_data.unbalanced_coin <- function(x, ...){
