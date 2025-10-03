@@ -21,3 +21,29 @@ test_that("get_data", {
   expect_equal(nrow(X), sum(ASEM_iData$GDP_group == "L"))
 
 })
+
+test_that("get_data.unbalanced_coin excludes placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  raw_df <- get_data(unbal, dset = "Raw", Level = 1, also_get = "none")
+  expect_false(any(names(raw_df) %in% placeholders))
+
+  unbal <- Aggregate(unbal, dset = "Raw")
+  agg_df <- get_data(unbal, dset = "Aggregated", Level = 2, also_get = "none")
+  expect_false(any(names(agg_df) %in% placeholders))
+
+  base_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  agg_bal <- get_data.coin(base_coin, dset = "Aggregated", Level = 2, also_get = "none")
+  if(length(placeholders) > 0){
+    agg_bal <- agg_bal[names(agg_bal)[!(names(agg_bal) %in% placeholders)]]
+  }
+  expect_identical(agg_df, agg_bal)
+})

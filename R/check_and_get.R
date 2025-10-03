@@ -279,6 +279,11 @@ get_dset <- function(x, dset, ...){
 #' Note that if you want to retrieve a whole data set (with no column/row subsetting), use the
 #' [get_dset()] function which should be slightly faster.
 #'
+#' For coins created with [new_unbalanced_coin()], this method delegates to the balanced implementation
+#' while stripping any placeholder codes that were inserted to reconcile the hierarchy. Returned data
+#' sets therefore only contain the genuine indicators/aggregates defined in the original unbalanced
+#' metadata.
+#'
 #' @param x A coin class object
 #' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
 #' @param iCodes Optional indicator codes to retrieve. If `NULL` (default), returns all iCodes found in
