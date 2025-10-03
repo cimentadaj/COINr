@@ -505,6 +505,78 @@ get_noisy_weights.unbalanced_coin <- function(w, noise_specs, Nrep, ...){
 }
 
 
+#' @rdname get_PCA
+#' @export
+get_PCA.unbalanced_coin <- function(coin, dset = "Raw", iCodes = NULL, Level = NULL, by_groups = TRUE,
+                                    nowarnings = FALSE, weights_to = NULL, out2 = "list", ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+
+  if(length(placeholders) > 0 && !is.null(coin$Meta$Unbalanced$PlaceholderMap)){
+    ph_map <- coin$Meta$Unbalanced$PlaceholderMap
+    if(!is.null(dset) && dset %in% names(base_coin$Data)){
+      for(child in names(ph_map)){
+        ph_code <- ph_map[[child]]
+        if(!ph_code %in% names(base_coin$Data[[dset]]) && child %in% names(base_coin$Data[[dset]])){
+          base_coin$Data[[dset]][[ph_code]] <- base_coin$Data[[dset]][[child]]
+        }
+      }
+    }
+  }
+
+  res <- get_PCA.coin(base_coin, dset = dset, iCodes = iCodes, Level = Level, by_groups = by_groups,
+                      nowarnings = nowarnings, weights_to = weights_to, out2 = out2, ...)
+
+  if(length(placeholders) == 0){
+    if(identical(out2, "coin") && inherits(res, "coin")){
+      res <- .ensure_unbalanced_class(res)
+    }
+    return(res)
+  }
+
+  strip_placeholder_rows <- function(df){
+    if(is.data.frame(df)){
+      df[!(df$iCode %in% placeholders), , drop = FALSE]
+    } else df
+  }
+
+  strip_placeholder_results <- function(lst){
+    if(!is.list(lst)){
+      return(lst)
+    }
+    lst[!(names(lst) %in% placeholders)]
+  }
+
+  if(identical(out2, "list") && is.list(res)){
+    if(!is.null(res$Weights)){
+      res$Weights <- strip_placeholder_rows(res$Weights)
+    }
+    if(!is.null(res$PCAresults)){
+      res$PCAresults <- strip_placeholder_results(res$PCAresults)
+    }
+    return(res)
+  }
+
+  if(identical(out2, "coin") && inherits(res, "coin")){
+    if(!is.null(weights_to) && !is.null(res$Meta$Weights[[weights_to]])){
+      res$Meta$Weights[[weights_to]] <- strip_placeholder_rows(res$Meta$Weights[[weights_to]])
+    }
+    level_key <- if(is.null(Level)) 1 else Level
+    pca_slot <- paste0("$PCA$L", level_key)
+    if(!is.null(res$Analysis[[dset]][[pca_slot]])){
+      res$Analysis[[dset]][[pca_slot]] <- strip_placeholder_results(res$Analysis[[dset]][[pca_slot]])
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
+  res
+}
+
+
 #' @rdname get_data.coin
 #' @export
 get_data.unbalanced_coin <- function(x, ...){

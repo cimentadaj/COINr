@@ -57,6 +57,7 @@
 #' @param weights_to A string to name the resulting set of weights. If this is specified, and `out2 = "coin"`,
 #' will write a new set of "PCA weights" to the `.$Meta$Weights` list. This is experimental - see details. If
 #' `NULL`, does not write any weights (default).
+#' @param ... Additional arguments passed to class-specific implementations.
 #'
 #' @importFrom stats prcomp na.omit
 #'
@@ -71,6 +72,12 @@
 #' # Summary of results for one of the sub-groups
 #' summary(l_pca$PCAresults$Social$PCAres)
 #'
+#' @details
+#' When `coin` inherits from `unbalanced_coin`, `get_PCA()` delegates to the balanced
+#' implementation while filtering out placeholder helper nodes inserted during balancing.
+#' Any placeholder codes are pruned from the returned weight tables and stored weight sets
+#' so that only genuine indicators and aggregates are exposed.
+#'
 #' @return
 #' If `out2 = "coin"`, results are appended to the coin object. Specifically:
 #' * A list is added to `.$Analysis` containing PCA weights (loadings) of the first principle component, and the output of [stats::prcomp], for each
@@ -82,8 +89,14 @@
 #' * [stats::prcomp] Principle component analysis
 #'
 #' @export
-get_PCA <- function(coin, dset = "Raw", iCodes = NULL, Level = NULL, by_groups = TRUE,
-                   nowarnings = FALSE, weights_to = NULL, out2 = "list"){
+get_PCA <- function(coin, ...){
+  UseMethod("get_PCA")
+}
+
+#' @rdname get_PCA
+#' @export
+get_PCA.coin <- function(coin, dset = "Raw", iCodes = NULL, Level = NULL, by_groups = TRUE,
+                   nowarnings = FALSE, weights_to = NULL, out2 = "list", ...){
 
   check_coin_input(coin)
 
