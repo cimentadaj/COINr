@@ -110,6 +110,7 @@ get_denom_corr <- function(coin, dset, cor_thresh = 0.6, cortype = "pearson",
 #' which will only flag correlations *below* `cor_thresh`.
 #' @param use_directions Logical: if `TRUE` the extracted data is adjusted using directions found inside the coin (i.e. the "Direction"
 #' column input in `iMeta`. See comments on this argument in [get_corr()].
+#' @param ... Additional arguments passed to [get_corr_flags.coin()].
 #'
 #' @examples
 #' # build example coin
@@ -122,9 +123,21 @@ get_denom_corr <- function(coin, dset, cor_thresh = 0.6, cortype = "pearson",
 #' @return A data frame with one entry for every indicator pair that is highly correlated within the same group, at the specified level.
 #' Pairs are only reported once, i.e. only uses the upper triangle of the correlation matrix.
 #'
+#' @details
+#' When `coin` inherits from `unbalanced_coin`, `get_corr_flags()` delegates to the balanced
+#' implementation while stripping any placeholder nodes from the metadata and returned rows. As a
+#' result, only genuine indicators appear in the flagged pairs, mirroring the behaviour of
+#' [get_corr()] for unbalanced hierarchies.
+#'
 #' @export
-get_corr_flags <- function(coin, dset, cor_thresh = 0.9, thresh_type = "high", cortype = "pearson",
-                     grouplev = NULL, roundto = 3, use_directions = FALSE){
+get_corr_flags <- function(coin, ...){
+  UseMethod("get_corr_flags")
+}
+
+#' @rdname get_corr_flags
+#' @export
+get_corr_flags.coin <- function(coin, dset, cor_thresh = 0.9, thresh_type = "high", cortype = "pearson",
+                     grouplev = NULL, roundto = 3, use_directions = FALSE, ...){
 
 
   # CHECKS AND DEFAULTS -----------------------------------------------------

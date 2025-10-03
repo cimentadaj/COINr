@@ -146,6 +146,30 @@ test_that("get_corr.unbalanced_coin strips placeholders", {
   expect_equal(cr_raw, cr_bal)
 })
 
+test_that("get_corr_flags.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  flags <- get_corr_flags(unbal, dset = "Raw", cor_thresh = 0, thresh_type = "high",
+                          grouplev = 2, roundto = NULL)
+  if(nrow(flags) > 0){
+    expect_false(any(flags$Ind1 %in% ph_codes))
+    expect_false(any(flags$Ind2 %in% ph_codes))
+  }
+
+  balanced_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  flags_bal <- get_corr_flags.coin(balanced_coin, dset = "Raw", cor_thresh = 0, thresh_type = "high",
+                                   grouplev = 2, roundto = NULL)
+  if(length(ph_codes) > 0){
+    flags_bal <- flags_bal[!(flags_bal$Ind1 %in% ph_codes | flags_bal$Ind2 %in% ph_codes), , drop = FALSE]
+  }
+  expect_equal(flags, flags_bal)
+})
+
 test_that("pvals", {
 
   # a matrix of random numbers, 3 cols

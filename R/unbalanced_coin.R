@@ -335,7 +335,27 @@ get_corr.unbalanced_coin <- function(coin, ...){
 }
 
 
-#' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
+#' @rdname get_corr_flags
+#' @export
+get_corr_flags.unbalanced_coin <- function(coin, ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  res <- get_corr_flags.coin(base_coin, ...)
+  if(length(placeholders) > 0 && is.data.frame(res)){
+    drop_idx <- res$Ind1 %in% placeholders | res$Ind2 %in% placeholders
+    res <- res[!drop_idx, , drop = FALSE]
+  }
+  res
+}
+
+
 #' @describeIn Impute.coin Wrapper that retains the unbalanced structure.
 #' @details In addition to the behaviour of [Impute.coin()], this method keeps the unbalanced metadata view and rejects `out2 = "coin"` to avoid dropping the `unbalanced_coin` class.
 #' @examplesIf requireNamespace("COINr", quietly = TRUE)

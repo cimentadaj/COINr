@@ -1,0 +1,34 @@
+#!/usr/bin/env Rscript
+
+#devtools::install_github("cimentadaj/COINr@unbalanced-coin-prototype")
+devtools::load_all()
+library(COINr)
+
+coin <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+
+coin$Data$Raw$IndA1[2] <- NA
+
+coin <- Impute(coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
+
+coin <- Denominate(coin, dset = "Raw", denoms = data.frame(
+  uCode = unbal_iData$uCode,
+  DenSub = c(2, 4, 5),
+  DenB = c(10, 12, 15)
+), denomby = data.frame(
+  iCode = c("IndA1", "IndA2", "IndB"),
+  Denominator = c("DenSub", "DenSub", "DenB"),
+  ScaleFactor = 1
+), write_to = "Denom")
+
+coin <- Treat(coin, dset = "Imputed", write_to = "Treated")
+
+coin <- Normalise(coin, dset = "Treated", write_to = "Normalised")
+
+coin <- Aggregate(coin, dset = "Raw")
+
+coin <- Screen(coin, dset = "Raw", unit_screen = "byNA", dat_thresh = 0.9)
+
+coin
+
+get_corr(coin, dset = "Aggregated", Levels = 2, pval = 0)
+get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 2)
