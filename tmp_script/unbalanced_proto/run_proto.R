@@ -66,6 +66,7 @@ get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3)
 get_PCA(coin, dset = "Aggregated", Level = 2, by_groups = TRUE, out2 = "list", nowarnings = TRUE)
 
 get_results(coin, dset = "Aggregated", tab_type = "Aggs")
+get_stats(coin, dset = "Aggregated", out2 = "df")
 
 SA_specs <- list(
   Winmax = list(Address = "$Log$Treat$global_specs$f1_para$winmax", Distribution = 1:5, Type = "discrete"),
@@ -78,7 +79,7 @@ SA_specs <- list(
 )
 
 SA_res <- get_sensitivity(coin, SA_specs = SA_specs, N = 5, SA_type = "SA",
-                dset = "Aggregated", iCode = "Index", quietly = TRUE)
+                dset = "Aggregated", iCode = "Index", Nboot = 10, quietly = TRUE)
 
 plot_uncertainty(SA_res)
 

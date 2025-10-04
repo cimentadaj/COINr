@@ -453,6 +453,50 @@ get_results.unbalanced_coin <- function(coin, dset, tab_type = "Summ", also_get 
 }
 
 
+#' @rdname get_stats.coin
+#' @export
+get_stats.unbalanced_coin <- function(x, dset, t_skew = 2, t_kurt = 3.5, t_avail = 0.65,
+                                      t_zero = 0.5, t_unq = 0.5, nsignif = 3, out2 = "df", ...){
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(x), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(x, class = base_classes)
+
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+  }
+
+  res <- get_stats.coin(base_coin, dset = dset, t_skew = t_skew, t_kurt = t_kurt,
+                        t_avail = t_avail, t_zero = t_zero, t_unq = t_unq,
+                        nsignif = nsignif, out2 = out2, ...)
+
+  if(length(placeholders) == 0){
+    if(identical(out2, "coin") && inherits(res, "coin")){
+      res <- .ensure_unbalanced_class(res)
+    }
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    return(.strip_placeholder_results(res, placeholders))
+  }
+
+  if(identical(out2, "coin") && inherits(res, "coin")){
+    if(!is.null(res$Analysis[[dset]][["Stats"]])){
+      res$Analysis[[dset]][["Stats"]] <- .strip_placeholder_results(res$Analysis[[dset]][["Stats"]], placeholders)
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
+  res
+}
+
+
 #' @rdname get_sensitivity
 #' @export
 get_sensitivity.unbalanced_coin <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode,

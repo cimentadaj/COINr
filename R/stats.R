@@ -33,6 +33,12 @@
 #'
 #' See also `vignette("analysis")`.
 #'
+#' @details
+#' For objects inheriting from `unbalanced_coin`, the method delegates to the balanced
+#' representation created by [new_unbalanced_coin()] and removes placeholder helper nodes
+#' from the returned statistics. When `out2 = "coin"`, the resulting analysis table is
+#' stored on the unbalanced object with the class tag preserved.
+#'
 #' @param t_skew Absolute skewness threshold. See details.
 #' @param t_kurt Kurtosis threshold. See details.
 #' @param t_avail Data availability threshold. See details.

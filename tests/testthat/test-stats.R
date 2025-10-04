@@ -33,3 +33,36 @@ test_that("stats", {
   coin <- get_stats(coin, dset = "Raw", nsignif = 4, out2 = "coin")
   expect_equal(coin$Analysis$Raw$Stats, df1)
 })
+
+test_that("get_stats.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Aggregate(unbal, dset = "Raw")
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  stats_unbal <- get_stats(unbal, dset = "Aggregated", out2 = "df")
+  if(length(placeholders) > 0){
+    expect_false(any(stats_unbal$iCode %in% placeholders))
+  }
+
+  stats_coin <- get_stats(unbal, dset = "Aggregated", out2 = "coin")
+  expect_true(inherits(stats_coin, "unbalanced_coin"))
+  if(length(placeholders) > 0){
+    expect_false(any(stats_coin$Analysis$Aggregated$Stats$iCode %in% placeholders))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  if(length(placeholders) > 0 && !is.null(balanced$Meta$Ind)){
+    balanced$Meta$Ind <- balanced$Meta$Ind[balanced$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  }
+  if(length(placeholders) > 0){
+    balanced$Meta$Lineage <- COINr:::`.sanitize_lineage`(balanced$Meta$Lineage, placeholders)
+  }
+
+  stats_bal <- get_stats.coin(balanced, dset = "Aggregated", out2 = "df")
+  expect_equal(stats_unbal, stats_bal)
+})
