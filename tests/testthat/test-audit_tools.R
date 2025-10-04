@@ -52,3 +52,43 @@ test_that("remove_elements", {
 
 
 })
+
+test_that("remove_elements handles unbalanced placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Aggregate(unbal, dset = "Raw")
+
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  res <- remove_elements(unbal, Level = 2, dset = "Aggregated", iCode = "Index", quietly = TRUE)
+  expect_type(res, "list")
+  expect_false(any(names(res$Scores) %in% placeholders))
+  expect_false(any(names(res$Ranks) %in% placeholders))
+  expect_false(any(names(res$RankDiffs) %in% placeholders))
+  expect_false(any(names(res$RankAbsDiffs) %in% placeholders))
+  if(length(res$MeanAbsDiff) > 0){
+    expect_false(any(names(res$MeanAbsDiff) %in% placeholders))
+  }
+
+  base_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  expected <- remove_elements.coin(base_coin, Level = 2, dset = "Aggregated", iCode = "Index", quietly = TRUE)
+  drop_cols <- function(df){
+    if(!is.data.frame(df)){
+      return(df)
+    }
+    keep <- setdiff(names(df), placeholders)
+    df[keep]
+  }
+  expected$Scores <- drop_cols(expected$Scores)
+  expected$Ranks <- drop_cols(expected$Ranks)
+  expected$RankDiffs <- drop_cols(expected$RankDiffs)
+  expected$RankAbsDiffs <- drop_cols(expected$RankAbsDiffs)
+  if(!is.null(expected$MeanAbsDiff)){
+    expected$MeanAbsDiff <- expected$MeanAbsDiff[names(expected$MeanAbsDiff) %nin% placeholders]
+  }
+  expect_equal(res, expected)
+})

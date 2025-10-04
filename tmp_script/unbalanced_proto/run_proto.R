@@ -68,6 +68,7 @@ get_PCA(coin, dset = "Aggregated", Level = 2, by_groups = TRUE, out2 = "list", n
 get_results(coin, dset = "Aggregated", tab_type = "Aggs")
 get_stats(coin, dset = "Aggregated", out2 = "df")
 get_unit_summary(coin, usel = "U1", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL)
+remove_elements(coin, Level = 2, dset = "Aggregated", iCode = "Index", quietly = TRUE)
 
 SA_specs <- list(
   Winmax = list(Address = "$Log$Treat$global_specs$f1_para$winmax", Distribution = 1:5, Type = "discrete"),

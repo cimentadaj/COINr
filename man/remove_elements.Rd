@@ -2,9 +2,15 @@
 % Please edit documentation in R/audit_tools.R
 \name{remove_elements}
 \alias{remove_elements}
+\alias{remove_elements.coin}
+\alias{remove_elements.unbalanced_coin}
 \title{Check the effect of removing indicators or aggregates}
 \usage{
-remove_elements(coin, Level, dset, iCode, quietly = FALSE)
+remove_elements(coin, Level, dset, iCode, quietly = FALSE, ...)
+
+\method{remove_elements}{coin}(coin, Level, dset, iCode, quietly = FALSE, ...)
+
+\method{remove_elements}{unbalanced_coin}(coin, Level, dset, iCode, quietly = FALSE, ...)
 }
 \arguments{
 \item{coin}{A coin class object, which must be constructed up to and including the aggregation step, i.e. using \code{\link[=Aggregate]{Aggregate()}}.}
@@ -20,6 +26,8 @@ the index code to compare the ranks of the index upon removing each indicator or
 
 \item{quietly}{Logical: if \code{FALSE} (default) will output to the console an indication of progress. Might be useful when iterating over many
 indicators. Otherwise set to \code{TRUE} to shut this up.}
+
+\item{...}{Arguments passed to or from methods.}
 }
 \value{
 A list with elements as follows:
@@ -53,6 +61,9 @@ but check that the aggregation method that you are using satisfies this relation
 use any weights, then setting the weight to zero will have no effect.
 
 This function replaces the now-defunct \code{removeElements()} from COINr < v1.0.
+
+For \link[=new_unbalanced_coin]{unbalanced coins}, placeholder indicators created only to balance the hierarchy are removed before the
+analysis runs, and they do not appear in the returned results.
 }
 \examples{
 # build example coin

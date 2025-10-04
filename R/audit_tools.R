@@ -21,6 +21,9 @@
 #'
 #' This function replaces the now-defunct `removeElements()` from COINr < v1.0.
 #'
+#' For [unbalanced coins][new_unbalanced_coin], placeholder indicators created only to balance the hierarchy are removed before the
+#' analysis runs, and they do not appear in the returned results.
+#'
 #' @param coin A coin class object, which must be constructed up to and including the aggregation step, i.e. using [Aggregate()].
 #' @param Level The level at which to remove elements. For example, `Level = 1` would check the effect of removing each indicator, one at
 #' a time. `Level = 2` would check the effect of removing each of the aggregation groups above the indicator level, one at a time.
@@ -29,7 +32,9 @@
 #' `.$Data[[dset]]`.
 #' @param quietly Logical: if `FALSE` (default) will output to the console an indication of progress. Might be useful when iterating over many
 #' indicators. Otherwise set to `TRUE` to shut this up.
+#'
 #' @param dset The name of the data set to take `iCode` from. Most likely this should be name of the aggregated data set, typically `"Aggregated"`.
+#' @param ... Arguments passed to or from methods.
 #'
 #' @examples
 #' # build example coin
@@ -51,7 +56,14 @@
 #' indicator or aggregate.
 #'
 #' @export
-remove_elements <- function(coin, Level, dset, iCode, quietly = FALSE){
+remove_elements <- function(coin, Level, dset, iCode, quietly = FALSE, ...){
+  UseMethod("remove_elements")
+}
+
+
+#' @rdname remove_elements
+#' @export
+remove_elements.coin <- function(coin, Level, dset, iCode, quietly = FALSE, ...){
 
   ##----- Checks and Preps ----
 
@@ -162,4 +174,43 @@ remove_elements <- function(coin, Level, dset, iCode, quietly = FALSE){
        RankAbsDiffs = rankchgabs,
        MeanAbsDiff = MeanAbsDiff)
 
+}
+
+
+#' @rdname remove_elements
+#' @export
+remove_elements.unbalanced_coin <- function(coin, Level, dset, iCode, quietly = FALSE, ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+
+  base_coin <- structure(coin, class = base_classes)
+
+  res <- remove_elements.coin(base_coin, Level = Level, dset = dset, iCode = iCode, quietly = quietly, ...)
+
+  if(length(placeholders) == 0 || !is.list(res)){
+    return(res)
+  }
+
+  strip_cols <- function(df){
+    if(!is.data.frame(df)){
+      return(df)
+    }
+    keep <- setdiff(names(df), placeholders)
+    df[keep]
+  }
+
+  res$Scores <- strip_cols(res$Scores)
+  res$Ranks <- strip_cols(res$Ranks)
+  res$RankDiffs <- strip_cols(res$RankDiffs)
+  res$RankAbsDiffs <- strip_cols(res$RankAbsDiffs)
+  if(!is.null(res$MeanAbsDiff)){
+    res$MeanAbsDiff <- res$MeanAbsDiff[names(res$MeanAbsDiff) %nin% placeholders]
+  }
+
+  res
 }
