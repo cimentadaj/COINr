@@ -226,6 +226,58 @@ test_that("pvals", {
 
 })
 
+test_that("get_pvals.coin matches direct computation", {
+
+  coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)
+  iData <- get_data(coin, dset = "Raw", also_get = "none")
+
+  expect_equal(get_pvals(coin, dset = "Raw"), get_pvals(iData))
+})
+
+test_that("get_pvals.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+  ph_codes <- ph_codes[!is.na(ph_codes)]
+
+  raw_pvals <- get_pvals(unbal, dset = "Raw", Level = 1)
+  if(!is.null(rownames(raw_pvals))){
+    expect_false(any(rownames(raw_pvals) %in% ph_codes))
+  }
+  if(!is.null(colnames(raw_pvals))){
+    expect_false(any(colnames(raw_pvals) %in% ph_codes))
+  }
+
+  balanced_raw <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  raw_balanced <- get_pvals.coin(balanced_raw, dset = "Raw", Level = 1)
+  if(length(ph_codes) > 0 && ncol(raw_balanced) > 0){
+    keep <- setdiff(colnames(raw_balanced), ph_codes)
+    raw_balanced <- raw_balanced[keep, keep, drop = FALSE]
+  }
+  expect_equal(raw_pvals, raw_balanced)
+
+  unbal_agg <- Aggregate(unbal, dset = "Raw")
+  agg_codes <- setdiff(unbal_iMeta$iCode[unbal_iMeta$Level == 2], ph_codes)
+  agg_pvals <- get_pvals(unbal_agg, dset = "Aggregated", iCodes = agg_codes)
+  if(!is.null(rownames(agg_pvals))){
+    expect_false(any(rownames(agg_pvals) %in% ph_codes))
+  }
+  if(!is.null(colnames(agg_pvals))){
+    expect_false(any(colnames(agg_pvals) %in% ph_codes))
+  }
+
+  balanced_agg <- structure(unbal_agg, class = setdiff(class(unbal_agg), "unbalanced_coin"))
+  agg_balanced <- get_pvals.coin(balanced_agg, dset = "Aggregated", iCodes = agg_codes)
+  if(length(ph_codes) > 0 && ncol(agg_balanced) > 0){
+    keep <- setdiff(colnames(agg_balanced), ph_codes)
+    agg_balanced <- agg_balanced[keep, keep, drop = FALSE]
+  }
+  expect_equal(agg_pvals, agg_balanced)
+})
+
 test_that("cronbach", {
 
   # coin

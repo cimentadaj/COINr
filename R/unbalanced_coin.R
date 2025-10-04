@@ -362,6 +362,28 @@ get_corr.unbalanced_coin <- function(coin, ...){
 }
 
 
+#' @rdname get_pvals
+#' @export
+get_pvals.unbalanced_coin <- function(x, dset, iCodes = NULL, Level = NULL,
+                                      uCodes = NULL, use_group = NULL, also_get = "none", ...){
+  placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(x), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(x, class = base_classes)
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+  }
+  res <- get_pvals.coin(base_coin, dset = dset, iCodes = iCodes, Level = Level,
+                        uCodes = uCodes, use_group = use_group, also_get = also_get, ...)
+  .strip_placeholder_corr(res, placeholders)
+}
+
+
 #' @rdname get_denom_corr
 #' @export
 get_denom_corr.unbalanced_coin <- function(coin, dset, ...){

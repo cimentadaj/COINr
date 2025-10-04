@@ -515,15 +515,21 @@ get_corr.coin <- function(coin, dset, iCodes = NULL, Levels = NULL, ...,
 
 
 
-#' P-values for correlations in a data frame or matrix
+#' P-values for correlations
 #'
 #' This is a stripped down version of the "cor.mtest()" function from the "corrplot" package. It uses
 #' the [stats::cor.test()] function to calculate pairwise p-values. Unlike the corrplot version, this
-#' only calculates p-values, and not confidence intervals. Credit to corrplot for this code, I only
-#' replicate it here to avoid depending on their package for a single function.
+#' only calculates p-values, and not confidence intervals. Credit to corrplot for this code, replicated
+#' here to avoid depending on their package for a single function.
 #'
-#' @param X A numeric matrix or data frame
-#' @param \dots Additional arguments passed to function [cor.test()], e.g. \code{conf.level = 0.95}.
+#' The generic can operate on a numeric matrix/data frame directly, or on the indicator data stored in a
+#' [`coin`][new_coin] object. See the method documentation for details on additional selection arguments. When
+#' supplied with an [`unbalanced_coin`][new_unbalanced_coin], helper nodes inserted during construction are removed from both
+#' the delegated data and the returned matrix so that only genuine indicators and aggregates are
+#' represented.
+#'
+#' @param x Object to analyse. For the default method this should be a numeric data frame or matrix.
+#' @param ... Additional arguments passed to [stats::cor.test()], e.g. `conf.level = 0.95`.
 #'
 #' @importFrom stats cor.test
 #'
@@ -539,37 +545,70 @@ get_corr.coin <- function(coin, dset, iCodes = NULL, Levels = NULL, ...,
 #'
 #' @return Matrix of p-values
 #' @export
-get_pvals = function(X, ...) {
+get_pvals <- function(x, ...){
+  UseMethod("get_pvals")
+}
 
-  # convert to matrix, get number cols
-  X = as.matrix(X)
-  n = ncol(X)
-
-  # prep matrix for p values
-  p.X <- matrix(NA, n, n)
-  diag(p.X) = 0
-
-  # populate matrix
-  for (i in 1:(n - 1)) {
-    for (j in (i + 1):n) {
-
-      # get p val for pair
-      # catch possibility of all NAs in one or both vectors
-      if(all(is.na(X[,i])) | all(is.na(X[,j]))){
-        p.X[i, j] <- p.X[j, i] <- NA
-      } else {
-        tmp = stats::cor.test(x = X[, i], y = X[, j], ...)
-        p.X[i, j] = p.X[j, i] = tmp$p.value
+.compute_pval_matrix <- function(mat, ...){
+  stopifnot(is.matrix(mat))
+  n <- ncol(mat)
+  p_mat <- matrix(0, nrow = n, ncol = n)
+  if(n > 1){
+    for(i in seq_len(n - 1)){
+      for(j in seq.int(i + 1, n)){
+        xi <- mat[, i]
+        xj <- mat[, j]
+        if(all(is.na(xi)) || all(is.na(xj))){
+          p_val <- NA_real_
+        } else {
+          tmp <- stats::cor.test(x = xi, y = xj, ...)
+          p_val <- tmp$p.value
+        }
+        p_mat[i, j] <- p_val
+        p_mat[j, i] <- p_val
       }
-
     }
   }
+  if(!is.null(colnames(mat))){
+    colnames(p_mat) <- colnames(mat)
+    rownames(p_mat) <- colnames(mat)
+  }
+  diag(p_mat) <- 0
+  p_mat
+}
 
-  # rename cols
-  colnames(p.X) = rownames(p.X) = colnames(X)
+#' @rdname get_pvals
+#' @export
+get_pvals.default <- function(x, ...){
+  mat <- as.matrix(x)
+  if(!is.numeric(mat)){ 
+    stop("`x` must be coercible to a numeric matrix.")
+  }
+  storage.mode(mat) <- "double"
+  .compute_pval_matrix(mat, ...)
+}
 
-  # output
-  p.X
+#' @rdname get_pvals
+#' @param dset The name of the data set to apply the function to, which should be accessible in `.$Data`.
+#' @param iCodes Optional indicator codes to retrieve. If `NULL` (default), returns all iCodes found in
+#'   the selected data set. Can also refer to indicator groups.
+#' @param Level Optionally, the level in the hierarchy to extract data from.
+#' @param uCodes Optional unit codes to filter rows of the resulting data set. Can also be used in
+#'   conjunction with groups.
+#' @param use_group Optional grouping to filter rows of the data set. Specified as `list(Group_Var = Group)`.
+#' @param also_get Character vector specifying any additional columns to attach to the data set that are
+#'   not indicators or aggregates. Set `also_get = "none"` to return only numeric columns.
+#' @export
+get_pvals.coin <- function(x, dset, iCodes = NULL, Level = NULL, uCodes = NULL,
+                           use_group = NULL, also_get = "none", ...){
+  iData <- get_data(x, dset = dset, iCodes = iCodes, Level = Level, uCodes = uCodes,
+                    use_group = use_group, also_get = also_get)
+  numeric_cols <- vapply(iData, is.numeric, logical(1))
+  if(!any(numeric_cols)){
+    stop("Selected data does not contain any numeric columns.")
+  }
+  iData <- iData[numeric_cols]
+  get_pvals.default(iData, ...)
 }
 
 
