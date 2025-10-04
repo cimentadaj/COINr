@@ -10,6 +10,12 @@
 #'
 #' This function replaces the now-defunct `getResults()` from COINr < v1.0.
 #'
+#' @details
+#' When applied to an object of class `unbalanced_coin`, the method delegates to the internally balanced
+#' representation and strips any placeholder helper nodes (see [new_unbalanced_coin()]) from both the
+#' metadata used to build the table and the outward results. This keeps the presentation identical to the
+#' balanced view while guaranteeing that only genuine indicators and aggregates appear in the output.
+#'
 #' @param coin The coin object, or a data frame of indicator data
 #' @param dset Name of data set in `.$Data`
 #' @param also_get Names of further columns to attach to table.
@@ -39,10 +45,15 @@
 #' coin with the results table attached to `.$Results`.
 #'
 #' @export
-get_results <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "scores", order_by = NULL,
-                       nround = 2, use_group = NULL, dset_indicators = NULL, out2 = "df"){
+get_results <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "scores",
+                        order_by = NULL, nround = 2, use_group = NULL, dset_indicators = NULL,
+                        out2 = "df"){
+  UseMethod("get_results")
+}
 
-  # CHECKS ------------------------------------------------------------------
+.get_results_impl <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "scores",
+                              order_by = NULL, nround = 2, use_group = NULL, dset_indicators = NULL,
+                              out2 = "df"){
 
   stopifnot(tab_type %in% c("Summ", "Aggs", "Full"),
             use %in% c("scores", "ranks", "groupranks"),
@@ -51,47 +62,30 @@ get_results <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "s
 
   check_coin_input(coin)
 
-  # GET DATA ----------------------------------------------------------------
-
-  # merge also_get with use_group
   also_get <- union(use_group, also_get)
 
-  # data
   iData <- get_data(coin, dset = dset, also_get = also_get, use_group = use_group)
 
-  # optionally indicator data from another data set (probably raw)
   if(!is.null(dset_indicators)){
     iDatai <- get_dset(coin, dset = dset_indicators)
-    # order rows by iData (also filter to only units in iData)
     iDatai <- iDatai[match(iData$uCode, iDatai$uCode), ]
-    # get all iData cols which are indicators
     ind_cols <- names(iData)[names(iData) %in% coin$Meta$Ind$iCode[which(coin$Meta$Ind$Type == "Indicator")]]
-    # hot swap
     stopifnot(all(ind_cols %in% names(iDatai)))
     iData[ind_cols] <- iDatai[ind_cols]
   }
 
-  # get meta col names
   mcols <- extract_iData(coin, iData, GET = "mCodes")
 
-  # get iMeta
   iMeta <- coin$Meta$Ind
-  # iMeta with only indicators and agg rows
   iMeta_ia <- iMeta[iMeta$Type %in% c("Indicator", "Aggregate"), ]
-  # order it from top level down
   iMeta_ia <- iMeta_ia[order(-iMeta_ia$Level, iMeta_ia$Parent), ]
 
-  # check if this is an aggregated data set
   if(any(iMeta_ia$iCode %nin% names(iData))){
     stop("The data set extracted by 'dset' does not seem to be an aggregated data set (indicator or aggregate codes are missing).")
   }
 
-  # ORDERING ------------------------------------------------------------
+  iData <- iData[c(mcols, iMeta_ia$iCode)]
 
-  # results table (sorted by rows and cols)
-  iData <- iData[c(mcols ,iMeta_ia$iCode)]
-
-  # get the column name to use for sorting the df
   if(is.null(order_by)){
     sortcode <- iMeta_ia$iCode[iMeta_ia$Level == coin$Meta$maxlev]
   } else {
@@ -101,72 +95,58 @@ get_results <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "s
     sortcode <- order_by
   }
 
-  iData$Rank <- rank(-1*iData[[sortcode]], na.last = "keep", ties.method = "min")
-
-  # BUILD TABLE -----------------------------------------------------------------
+  iData$Rank <- rank(-1 * iData[[sortcode]], na.last = "keep", ties.method = "min")
 
   if(tab_type %in% c("Summ", "Summary")){
-
-    # Just the indicator/index plus ranks
     tabout <- iData[c(mcols, sortcode, "Rank")]
-
   } else if (tab_type %in% c("Aggs", "Aggregates")){
-
-    # All the aggregate scores
     tabout <- iData[c(mcols, "Rank", iMeta_ia$iCode[iMeta_ia$Type == "Aggregate"])]
-
   } else if (tab_type %in% c("Full", "FullWithDenoms")){
-
-    # Get sorted indicator codes, not aggregates
     othercodes <- coin$Meta$Lineage[[1]]
     stopifnot(any(othercodes %in% names(iData)))
-
-    # All the aggregate scores
     tabout <- iData[c(mcols, "Rank", iMeta_ia$iCode[iMeta_ia$Type == "Aggregate"], othercodes)]
-
   }
 
-  # Sorting
-  tabout <- tabout[order(-tabout[[sortcode]]),]
+  tabout <- tabout[order(-tabout[[sortcode]]), ]
 
-  # Ranks
   if(use == "ranks"){
     tabout <- tabout[colnames(tabout) != "Rank"]
     tabout <- rank_df(tabout)
-  } else if (use =="groupranks"){
+  } else if (use == "groupranks"){
     if(is.null(use_group)){
       stop("If groupranks is specified, you need to also specify use_group.")
     }
     tabout <- tabout[colnames(tabout) != "Rank"]
     tabout <- rank_df(tabout, use_group = use_group)
-    # sort by group
-    tabout <- tabout[order(tabout[[use_group]]),]
+    tabout <- tabout[order(tabout[[use_group]]), ]
   } else {
-    # Rounding only if using scores (avoid rounding errors on ranks)
     tabout <- round_df(tabout, nround)
   }
 
-  # FINISH AND OUTPUT -------------------------------------------------
-
   if(out2 == "df"){
-
-    return(tabout)
-
+    tabout
   } else if (out2 == "coin"){
-
     if(use == "scores"){
-      coin$Results[[paste0(tab_type,"Score")]] <- tabout
+      coin$Results[[paste0(tab_type, "Score")]] <- tabout
     } else if (use == "ranks"){
-      coin$Results[[paste0(tab_type,"Rank")]] <- tabout
+      coin$Results[[paste0(tab_type, "Rank")]] <- tabout
     } else if (use == "groupranks"){
-      coin$Results[[paste0(tab_type,"GrpRnk", use_group)]] <- tabout
+      coin$Results[[paste0(tab_type, "GrpRnk", use_group)]] <- tabout
     }
-    return(coin)
-
+    coin
   } else {
     stop("out2 not recognised!")
   }
+}
 
+#' @rdname get_results
+#' @export
+get_results.coin <- function(coin, dset, tab_type = "Summ", also_get = NULL, use = "scores",
+                             order_by = NULL, nround = 2, use_group = NULL, dset_indicators = NULL,
+                             out2 = "df"){ 
+  .get_results_impl(coin = coin, dset = dset, tab_type = tab_type, also_get = also_get, use = use,
+                    order_by = order_by, nround = nround, use_group = use_group,
+                    dset_indicators = dset_indicators, out2 = out2)
 }
 
 

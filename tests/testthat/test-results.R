@@ -17,6 +17,54 @@ test_that("results_tables", {
 
 })
 
+test_that("get_results.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Aggregate(unbal, dset = "Raw")
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  res_aggs <- get_results(unbal, dset = "Aggregated", tab_type = "Aggs")
+  if(length(placeholders) > 0){
+    expect_false(any(names(res_aggs) %in% placeholders))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  if(length(placeholders) > 0){
+    if(!is.null(balanced$Meta$Ind)){
+      balanced$Meta$Ind <- balanced$Meta$Ind[balanced$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    balanced$Meta$Lineage <- COINr:::.sanitize_lineage(balanced$Meta$Lineage, placeholders)
+  }
+  res_bal <- get_results.coin(balanced, dset = "Aggregated", tab_type = "Aggs")
+  expect_equal(res_aggs, res_bal)
+
+  res_full_ranks <- get_results(unbal, dset = "Aggregated", tab_type = "Full", use = "ranks")
+  if(length(placeholders) > 0){
+    expect_false(any(names(res_full_ranks) %in% placeholders))
+  }
+
+  res_bal_full <- get_results.coin(balanced, dset = "Aggregated", tab_type = "Full", use = "ranks")
+  expect_equal(res_full_ranks, res_bal_full)
+
+  res_coin <- get_results(unbal, dset = "Aggregated", tab_type = "Aggs", out2 = "coin")
+  expect_true(inherits(res_coin, "unbalanced_coin"))
+  stored_results <- res_coin$Results$AggsScore
+  if(length(placeholders) > 0 && !is.null(stored_results)){
+    expect_false(any(names(stored_results) %in% placeholders))
+  }
+
+  res_coin_bal <- get_results.coin(balanced, dset = "Aggregated", tab_type = "Aggs", out2 = "coin")
+  stored_bal <- res_coin_bal$Results$AggsScore
+  if(length(placeholders) > 0 && !is.null(stored_bal)){
+    stored_bal <- stored_bal[setdiff(names(stored_bal), placeholders)]
+  }
+  expect_equal(stored_results, stored_bal)
+})
+
 test_that("unit_summary", {
 
   # build coin

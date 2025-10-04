@@ -109,6 +109,27 @@
   res
 }
 
+.strip_placeholder_results <- function(res, placeholders){
+  if(is.null(placeholders) || length(placeholders) == 0){
+    return(res)
+  }
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0){
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    keep <- names(res) %nin% placeholders
+    return(res[keep])
+  }
+
+  if(is.list(res)){
+    return(lapply(res, .strip_placeholder_results, placeholders = placeholders))
+  }
+
+  res
+}
+
 .sanitize_lineage <- function(lineage, placeholders){
   if(is.null(lineage) || length(placeholders) == 0){
     return(lineage)
@@ -381,6 +402,54 @@ get_pvals.unbalanced_coin <- function(x, dset, iCodes = NULL, Level = NULL,
   res <- get_pvals.coin(base_coin, dset = dset, iCodes = iCodes, Level = Level,
                         uCodes = uCodes, use_group = use_group, also_get = also_get, ...)
   .strip_placeholder_corr(res, placeholders)
+}
+
+
+#' @rdname get_results
+#' @export
+get_results.unbalanced_coin <- function(coin, dset, tab_type = "Summ", also_get = NULL,
+                                        use = "scores", order_by = NULL, nround = 2,
+                                        use_group = NULL, dset_indicators = NULL, out2 = "df"){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+    if(!is.null(base_coin$Results)){
+      base_coin$Results <- lapply(base_coin$Results, .strip_placeholder_results, placeholders = placeholders)
+    }
+  }
+
+  res <- get_results.coin(base_coin, dset = dset, tab_type = tab_type, also_get = also_get,
+                          use = use, order_by = order_by, nround = nround,
+                          use_group = use_group, dset_indicators = dset_indicators, out2 = out2)
+
+  if(length(placeholders) == 0){
+    if(identical(out2, "coin") && inherits(res, "coin")){
+      res <- .ensure_unbalanced_class(res)
+    }
+    return(res)
+  }
+
+  if(is.data.frame(res)){
+    return(.strip_placeholder_results(res, placeholders))
+  }
+
+  if(identical(out2, "coin") && inherits(res, "coin")){
+    if(!is.null(res$Results)){
+      res$Results <- lapply(res$Results, .strip_placeholder_results, placeholders = placeholders)
+    }
+    res <- .ensure_unbalanced_class(res)
+  }
+
+  res
 }
 
 
