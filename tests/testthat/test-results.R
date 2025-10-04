@@ -83,6 +83,33 @@ test_that("unit_summary", {
 
 })
 
+test_that("get_unit_summary handles unbalanced placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Aggregate(unbal, dset = "Raw")
+
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  res <- get_unit_summary(unbal, usel = "U1", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL)
+  expect_setequal(names(res), c("Code", "Name", "Score", "Rank"))
+  expect_false(any(res$Code %in% placeholders))
+
+  base_coin <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- COINr:::.sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+  }
+
+  expected <- get_unit_summary.coin(base_coin, usel = "U1", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL)
+  expect_equal(res, expected)
+})
+
 test_that("str_weak", {
 
   # build example coin

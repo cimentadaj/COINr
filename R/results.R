@@ -157,6 +157,9 @@ get_results.coin <- function(coin, dset, tab_type = "Summ", also_get = NULL, use
 #' This returns the scores and ranks for each indicator/aggregate as specified in `aglevs`. It orders the table so that
 #' the highest aggregation levels are first. This means that if the index level is included, it will be first.
 #'
+#' For [unbalanced coins][new_unbalanced_coin], placeholder indicators created solely to balance the hierarchy are
+#' removed automatically before summaries are computed, and do not appear in the returned table.
+#'
 #' This function replaces the now-defunct `getUnitSummary()` from COINr < v1.0.
 #'
 #' @param coin A coin
@@ -164,6 +167,7 @@ get_results.coin <- function(coin, dset, tab_type = "Summ", also_get = NULL, use
 #' @param Levels The aggregation levels to display results from.
 #' @param dset The data set within the coin to extract scores and ranks from
 #' @param nround Number of decimals to round scores to, default 2. Set to `NULL` to disable rounding.
+#' @param ... Arguments passed to or from methods.
 #'
 #' @examples
 #' # build full example coin
@@ -175,7 +179,14 @@ get_results.coin <- function(coin, dset, tab_type = "Summ", also_get = NULL, use
 #' @return A summary table as a data frame, containing scores and ranks for specified indicators/aggregates.
 #'
 #' @export
-get_unit_summary <- function(coin, usel, Levels, dset = "Aggregated", nround = 2){
+get_unit_summary <- function(coin, usel, Levels, dset = "Aggregated", nround = 2, ...){
+  UseMethod("get_unit_summary")
+}
+
+
+#' @rdname get_unit_summary
+#' @export
+get_unit_summary.coin <- function(coin, usel, Levels, dset = "Aggregated", nround = 2, ...){
 
   # get rank and score tables
   scrs <- get_data(coin, dset = dset)
@@ -223,6 +234,36 @@ get_unit_summary <- function(coin, usel, Levels, dset = "Aggregated", nround = 2
 
   df_out
 
+}
+
+
+#' @rdname get_unit_summary
+#' @export
+get_unit_summary.unbalanced_coin <- function(coin, usel, Levels, dset = "Aggregated", nround = 2, ...){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+
+  base_coin <- structure(coin, class = base_classes)
+
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
+  }
+
+  res <- get_unit_summary.coin(base_coin, usel = usel, Levels = Levels, dset = dset, nround = nround, ...)
+
+  if(length(placeholders) > 0 && is.data.frame(res)){
+    res <- res[!(res$Code %in% placeholders), , drop = FALSE]
+  }
+
+  res
 }
 
 
