@@ -57,6 +57,57 @@ test_that("sensitivity_works", {
 
 })
 
+test_that("get_sensitivity.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Impute(unbal, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
+  unbal <- Treat(unbal, dset = "Imputed", write_to = "Treated")
+  unbal <- Normalise(unbal, dset = "Treated", write_to = "Normalised")
+  unbal <- Aggregate(unbal, dset = "Normalised")
+
+  placeholders <- unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:5,
+                   Type = "discrete")
+
+  norm_alts <- list(
+    list(f_n = "n_minmax", f_n_para = list(c(1, 100))),
+    list(f_n = "n_minmax", f_n_para = list(c(1, 100)))
+  )
+
+  l_norm <- list(Address = "$Log$Normalise$global_specs",
+                 Distribution = norm_alts,
+                 Type = "discrete")
+
+  SA_specs <- list(
+    Winmax = l_winmax,
+    Normalisation = l_norm
+  )
+
+  set.seed(123)
+  SA_unbal <- get_sensitivity(unbal, SA_specs = SA_specs, N = 10, SA_type = "SA",
+                              dset = "Aggregated", iCode = "Index", Nboot = 10,
+                              quietly = TRUE)
+
+  if(length(placeholders) > 0){
+    expect_false(any(names(SA_unbal$Scores) %in% placeholders))
+    expect_false(any(names(SA_unbal$Ranks) %in% placeholders))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  set.seed(123)
+  SA_bal <- get_sensitivity.coin(balanced, SA_specs = SA_specs, N = 10, SA_type = "SA",
+                                 dset = "Aggregated", iCode = "Index", Nboot = 10,
+                                 quietly = TRUE)
+
+  expect_equal(SA_unbal, SA_bal)
+})
+
 test_that("sampling_works", {
 
   # make a sample

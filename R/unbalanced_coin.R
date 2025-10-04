@@ -453,6 +453,41 @@ get_results.unbalanced_coin <- function(coin, dset, tab_type = "Summ", also_get 
 }
 
 
+#' @rdname get_sensitivity
+#' @export
+get_sensitivity.unbalanced_coin <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode,
+                                            Nboot = NULL, quietly = FALSE, check_addresses = TRUE,
+                                            diagnostic_mode = FALSE){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+
+  res <- get_sensitivity.coin(base_coin, SA_specs = SA_specs, N = N, SA_type = SA_type,
+                              dset = dset, iCode = iCode, Nboot = Nboot, quietly = quietly,
+                              check_addresses = check_addresses, diagnostic_mode = diagnostic_mode)
+
+  if(length(placeholders) > 0){
+    res$Scores <- .strip_placeholder_results(res$Scores, placeholders)
+    res$Ranks <- .strip_placeholder_results(res$Ranks, placeholders)
+    res$RankStats <- .strip_placeholder_results(res$RankStats, placeholders)
+    res$Nominal <- .strip_placeholder_results(res$Nominal, placeholders)
+  }
+
+  if(diagnostic_mode && !is.null(res$coins)){ 
+    res$coins <- lapply(res$coins, function(x){
+      if(is.coin(x)){
+        .ensure_unbalanced_class(x)
+      } else x
+    })
+  }
+
+  res
+}
+
+
 #' @rdname get_denom_corr
 #' @export
 get_denom_corr.unbalanced_coin <- function(coin, dset, ...){

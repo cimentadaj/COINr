@@ -34,6 +34,13 @@
 #'
 #' This function replaces the now-defunct `sensitivity()` from COINr < v1.0.
 #'
+#' @details
+#' When `coin` inherits from `unbalanced_coin`, the method delegates to the balanced representation
+#' used internally by [new_unbalanced_coin()] and removes placeholder helper nodes from all tabular
+#' outputs. Any diagnostic coins stored in the result (see `diagnostic_mode`) are re-tagged with the
+#' unbalanced class before returning so that downstream tooling continues to operate on the original
+#' hierarchy.
+#'
 #' @param coin A coin
 #' @param SA_specs Specifications of the input uncertainties
 #' @param N The number of regenerations
@@ -71,9 +78,13 @@
 #'
 get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboot = NULL, quietly = FALSE,
                             check_addresses = TRUE, diagnostic_mode = FALSE){
+  UseMethod("get_sensitivity")
+}
+
+.get_sensitivity_impl <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboot = NULL,
+                                  quietly = FALSE, check_addresses = TRUE, diagnostic_mode = FALSE){
 
   t0 <- proc.time()
-  # CHECKS ------------------------------------------------------------------
 
   check_coin_input(coin)
   stopifnot(is.list(SA_specs),
@@ -82,7 +93,6 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
             N > 2,
             SA_type %in% c("SA", "UA"))
 
-  # check format of SA_specs
   check_specs <- sapply(SA_specs, function(li){
     !is.null(li$Address) & !is.null(li$Distribution) & !is.null(li$Type)
   })
@@ -91,115 +101,73 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
     stop("One or more entries in SA_specs is missing either the $Name, $Address or $Distribution entries.")
   }
 
-
-  # PREP --------------------------------------------------------------------
-
-  # number of uncertain input paras
   d <- length(SA_specs)
 
-  # get sample
   if(SA_type == "UA"){
-
-    # a random (uniform) sample
-    XX <- matrix(stats::runif(d*N), nrow = N, ncol = d)
-
+    XX <- matrix(stats::runif(d * N), nrow = N, ncol = d)
   } else {
-
-    if(d==1){
-      stop("Only one uncertain input defined. It is not meaningful to run a sensitivity analysis
-      with only one input variable. Consider changing SA_type to \"UA\".")
+    if(d == 1){
+      stop("Only one uncertain input defined. It is not meaningful to run a sensitivity analysis\n      with only one input variable. Consider changing SA_type to \"UA\".")
     }
-
-    # use standard MC estimators of sensitivity indices
     XX <- SA_sample(N, d)
-
   }
-  # covert to df
+
   XX <- as.data.frame(XX)
-  # total number of regens
   NT <- nrow(XX)
 
-  # convert sample to parameters (data frame with list cols?)
   XX_p <- mapply(function(x, spec){
     sample_2_para(x, distribution = spec$Distribution, dist_type = spec$Type)
   }, XX, SA_specs, SIMPLIFY = FALSE)
-  # name list according to parameters
   names(XX_p) <- names(SA_specs)
 
-  # also get addresses
   addresses <- sapply(SA_specs, `[[`, "Address")
 
-  # check addresses for validity
   if(check_addresses){
-    a_check <- lapply(addresses, check_address, coin)
+    invisible(lapply(addresses, check_address, coin))
   }
 
-  # RUN COINS ---------------------------------------------------------------
-
-  # at this point the parameters are stored in a list where each entry of the list is a parameter,
-  # and the entry contains N instances of each parameter
-
-  # first get nominal results
   SA_scores <- get_data(coin, dset = dset, iCodes = iCode)
 
-  # make a df of NAs in case a coin regen fails
   v_fail <- SA_scores
   v_fail[names(v_fail) == iCode] <- NA
 
   names(SA_scores)[names(SA_scores) == iCode] <- "Nominal"
 
-  # optionally save coins to list
   if(diagnostic_mode){
     coin_list <- vector(mode = "list", length = NT)
   }
 
-  # looping over each replication in the SA
-  for(irep in 1:NT){
+  for(irep in seq_len(NT)){
 
-    # list of parameters for current rep
     l_para_rep <- lapply(XX_p, `[[`, irep)
 
-    if (!quietly){
-      message(paste0("Rep ",irep," of ",NT," ... ", round(irep*100/NT,1), "% complete" ))
+    if(!quietly){
+      message(paste0("Rep ", irep, " of ", NT, " ... ", round(irep * 100 / NT, 1), "% complete"))
     }
 
-    # regenerate coin using parameter list
     coin_rep <- regen_edit(l_para_rep, addresses, coin)
 
-    # optionally save coin
     if(diagnostic_mode){
       coin_list[[irep]] <- coin_rep
     }
 
-    # extract variable of interest
     if(is.coin(coin_rep)){
       v_out <- get_data(coin_rep, dset = dset, iCodes = iCode)
-      # check
       stopifnot(setequal(colnames(v_out), c("uCode", iCode)))
     } else {
-      # df with just NAs
       v_out <- v_fail
     }
 
-    # merge onto nominal results and rename
     SA_scores <- merge(SA_scores, v_out, by = "uCode", all = TRUE)
-    names(SA_scores)[names(SA_scores) == iCode] <- paste0("r_",irep)
-
+    names(SA_scores)[names(SA_scores) == iCode] <- paste0("r_", irep)
   }
 
-
-  # POST --------------------------------------------------------------------
-
-  # get ranks
   SA_ranks <- rank_df(SA_scores)
-  # get ranks, but just the ones from the SA/UA. If SA, only keep first 2N cols
-  # which correspond to random sampling.
   SA_ranks_ <- SA_ranks[names(SA_ranks) %nin% c("uCode", "Nominal")]
   if(SA_type == "SA"){
-    SA_ranks_ <- SA_ranks_[, 1:(2*N)]
+    SA_ranks_ <- SA_ranks_[, 1:(2 * N)]
   }
 
-  # rank stats
   RankStats <- data.frame(
     uCode = SA_ranks$uCode,
     Nominal = SA_ranks$Nominal,
@@ -209,7 +177,6 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
     Q95 = apply(SA_ranks_, MARGIN = 1, stats::quantile, probs = 0.95, na.rm = TRUE)
   )
 
-  # Build list to output
   SA_out <- list(
     Scores = SA_scores,
     Ranks = SA_ranks,
@@ -217,41 +184,44 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
     Para = XX_p
   )
 
-  # get sensitivity indices if SA
   if(SA_type == "SA"){
-
-    # An easy target is the mean absolute rank change
     y_AvDiffs <- apply(SA_ranks[names(SA_ranks) %nin% c("uCode", "Nominal")], 2,
-                       FUN = function(x) mean(abs(x-SA_ranks$Nominal), na.rm = TRUE) )
-
-    # using this, get sensitivity estimates and write to output list
+                       function(x) mean(abs(x - SA_ranks$Nominal), na.rm = TRUE))
     SAout <- SA_estimate(y_AvDiffs, N = N, d = d, Nboot = Nboot)
     Sinds <- SAout$SensInd
     Sinds$Variable <- names(SA_specs)
     SA_out$Sensitivity <- Sinds
-
   }
 
-  SA_out$Nominal <- data.frame(uCode = SA_scores$uCode,
-                               Score = SA_scores$Nominal,
-                               Rank = SA_ranks$Nominal)
+  SA_out$Nominal <- data.frame(
+    uCode = SA_scores$uCode,
+    Score = SA_scores$Nominal,
+    Rank = SA_ranks$Nominal
+  )
 
-  # optionally add coin list
   if(diagnostic_mode){
     SA_out$coins <- coin_list
   }
 
-  # timing
   tf <- proc.time()
-  tdiff <- tf-t0
+  tdiff <- tf - t0
   telapse <- as.numeric(tdiff[3])
-  taverage <- telapse/NT
+  taverage <- telapse / NT
 
   if(!quietly){
-    message(paste0("Time elapsed = ", round(telapse,2), "s, average ", round(taverage,2), "s/rep."))
+    message(paste0("Time elapsed = ", round(telapse, 2), "s, average ", round(taverage, 2), "s/rep."))
   }
 
   SA_out
+}
+
+#' @rdname get_sensitivity
+#' @export
+get_sensitivity.coin <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboot = NULL,
+                                 quietly = FALSE, check_addresses = TRUE, diagnostic_mode = FALSE){
+  .get_sensitivity_impl(coin = coin, SA_specs = SA_specs, N = N, SA_type = SA_type,
+                        dset = dset, iCode = iCode, Nboot = Nboot, quietly = quietly,
+                        check_addresses = check_addresses, diagnostic_mode = diagnostic_mode)
 }
 
 
