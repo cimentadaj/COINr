@@ -1,74 +1,72 @@
 #!/usr/bin/env Rscript
 
-#devtools::install_github("cimentadaj/COINr@unbalanced-coin-prototype")
 devtools::load_all()
 library(COINr)
 
-unbal_data <- unbal_iData
-unbal_data$DenSub <- c(2, 4, 5)
-unbal_data$DenB <- c(10, 12, 15)
+# -----------------------------------------------------------------------------
+# Load packaged unbalanced ASEM data
+# -----------------------------------------------------------------------------
 
-unbal_meta <- rbind(
-  unbal_iMeta,
-  data.frame(
-    iCode = c("DenSub", "DenB"),
-    Level = NA_integer_,
-    Parent = NA_character_,
-    Direction = NA_integer_,
-    Weight = NA_real_,
-    Type = "Denominator",
-    stringsAsFactors = FALSE
-  )
-)
+data("ASEM_unbal_iData", package = "COINr")
+data("ASEM_unbal_iMeta", package = "COINr")
 
-coin <- new_unbalanced_coin(unbal_data, unbal_meta, quietly = TRUE)
+meta_coin <- ASEM_unbal_iMeta
+meta_coin$iName <- NULL
 
-coin$Data$Raw$IndA1[2] <- NA
+coin <- new_unbalanced_coin(ASEM_unbal_iData, meta_coin, quietly = TRUE)
+
+# -----------------------------------------------------------------------------
+# Pipeline on the generated unbalanced ASEM coin
+# -----------------------------------------------------------------------------
 
 coin <- Impute(coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
-
-coin <- Denominate(coin, dset = "Raw", denoms = data.frame(
-  uCode = unbal_iData$uCode,
-  DenSub = c(2, 4, 5),
-  DenB = c(10, 12, 15)
-), denomby = data.frame(
-  iCode = c("IndA1", "IndA2", "IndB"),
-  Denominator = c("DenSub", "DenSub", "DenB"),
-  ScaleFactor = 1
-), write_to = "Denom")
-
-coin <- Treat(coin, dset = "Imputed", write_to = "Treated")
-
+coin <- Denominate(coin, dset = "Imputed", write_to = "Denominated")
+coin <- Treat(coin, dset = "Denominated", write_to = "Treated")
 coin <- Normalise(coin, dset = "Treated", write_to = "Normalised")
+coin <- Aggregate(coin, dset = "Normalised")
+coin <- Screen(coin, dset = "Normalised", unit_screen = "byNA", dat_thresh = 0.9)
 
-coin <- Aggregate(coin, dset = "Raw")
+print(coin)
 
-coin <- Screen(coin, dset = "Raw", unit_screen = "byNA", dat_thresh = 0.9)
-
-coin
-
-get_cronbach(coin, dset = "Aggregated", iCodes = "SubA", Level = 2)
-get_corr(coin, dset = "Aggregated", Levels = 2, pval = 0)
-get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 2)
+get_cronbach(coin, dset = "Aggregated", iCodes = "PhysTrans", Level = 1)
+get_corr(coin, dset = "Aggregated", Levels = 3, pval = 0)
+get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 3)
 get_denom_corr(coin, dset = "Raw", cor_thresh = 0.5)
-get_data(coin, dset = "Aggregated", Level = 2, also_get = "none")
+get_data(coin, dset = "Aggregated", Level = 3, also_get = "none")
 get_data_avail(coin, dset = "Aggregated", out2 = "list")
 
 get_pvals(coin, dset = "Normalised", Level = 1)
 
 get_eff_weights(coin, out2 = "df")
 
-get_opt_weights(coin, itarg = "equal", dset = "Aggregated", Level = 2, out2 = "list")
+level4_codes <- coin$Meta$Ind$iCode[coin$Meta$Ind$Level == 4 & coin$Meta$Ind$Type == "Aggregate"]
+level4_codes <- level4_codes[!is.na(level4_codes)]
+get_opt_weights(coin, itarg = "equal", dset = "Aggregated", Level = 4, iCodes = level4_codes, out2 = "list")
 
-noise_specs <- data.frame(Level = c(1, 2), NoiseFactor = c(0.15, 0.1))
+noise_specs <- data.frame(Level = c(1, 4), NoiseFactor = c(0.15, 0.1))
 get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3)
 
-get_PCA(coin, dset = "Aggregated", Level = 2, by_groups = TRUE, out2 = "list", nowarnings = TRUE)
+get_PCA(coin, dset = "Aggregated", Level = 3, by_groups = TRUE, out2 = "list", nowarnings = TRUE)
 
 get_results(coin, dset = "Aggregated", tab_type = "Aggs")
 get_stats(coin, dset = "Aggregated", out2 = "df")
-get_unit_summary(coin, usel = "U1", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL)
-remove_elements(coin, Level = 2, dset = "Aggregated", iCode = "Index", quietly = TRUE)
+get_unit_summary(coin, usel = "AUT", Levels = c(1, 3, 5), dset = "Aggregated", nround = NULL)
+
+res <- remove_elements(coin, Level = coin$Meta$maxlev - 2, dset = "Aggregated", iCode = "Conn", quietly = TRUE)
+res$MeanAbsDiff
+
+# -----------------------------------------------------------------------------
+# Quick plot examples for the unbalanced ASEM coin
+# -----------------------------------------------------------------------------
+
+plot_bar(coin, dset = "Aggregated", iCode = "Conn")
+plot_corr(coin, dset = "Aggregated", Levels = 3)
+plot_dist(coin, dset = "Raw", iCodes = c("FDI", "Goods"))
+plot_dot(coin, dset = "Aggregated", iCode = "Conn", usel = "AUT")
+framework_coin <- coin
+framework_coin$Meta$Ind$Parent[framework_coin$Meta$Ind$iCode == "Index"] <- "Index"
+plot_framework(framework_coin, colour_level = 3)
+plot_scatter(coin, dsets = c("Normalised", "Normalised"), iCodes = c("FDI", "Goods"))
 
 SA_specs <- list(
   Winmax = list(Address = "$Log$Treat$global_specs$f1_para$winmax", Distribution = 1:5, Type = "discrete"),
@@ -88,11 +86,3 @@ plot_uncertainty(SA_res)
 head(SA_res$RankStats)
 
 plot_sensitivity(SA_res, ptype = 'box')
-
-# minimal vignette-style pipeline on the unbalanced example
-results_coin <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
-results_coin <- Impute(results_coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
-results_coin <- Treat(results_coin, dset = "Imputed", write_to = "Treated")
-results_coin <- Normalise(results_coin, dset = "Treated", write_to = "Normalised")
-results_coin <- Aggregate(results_coin, dset = "Normalised")
-get_results(results_coin, dset = "Aggregated", tab_type = "Aggs")
