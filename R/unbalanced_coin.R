@@ -527,10 +527,9 @@ print.unbalanced_coin <- function(x, ...){
 Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat_thresh = NULL,
                                       by_df = FALSE, out2 = "unbalanced_coin", write_to = NULL, ...) {
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  keep_placeholders <- isTRUE(getOption("COINr.keep_placeholders"))
   call <- match.call()
   out2 <- if("out2" %in% names(call)) eval(call$out2, parent.frame()) else "unbalanced_coin"
-  if(identical(out2, "coin"))
-    stop("Set out2 = 'unbalanced_coin' to retain the unbalanced object or use 'df' for a data frame output.")
   next_out2 <- if(identical(out2, "unbalanced_coin")) "coin" else out2
   write_to_name <- if("write_to" %in% names(call)) eval(call$write_to, parent.frame()) else NULL
   if(is.null(write_to_name)){
@@ -565,7 +564,7 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
   )
 
   if(is.data.frame(res)){
-    if(length(placeholders) > 0){
+    if(!keep_placeholders && length(placeholders) > 0){
       res <- res[setdiff(names(res), placeholders)]
     }
     return(res)
@@ -574,12 +573,12 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
   res <- .cache_unbalanced_placeholders(res, dset_name)
   res <- .cache_unbalanced_placeholders(res, write_to_name)
 
-  if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
+  if(!keep_placeholders && length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
   }
 
-  if(!is.null(dset_name) && !is.null(res$Data[[dset_name]])){
+  if(!keep_placeholders && !is.null(dset_name) && !is.null(res$Data[[dset_name]])){
     drop_cols <- unique(c(added_cols, placeholders))
     if(length(drop_cols) > 0){
       keep <- setdiff(names(res$Data[[dset_name]]), drop_cols)
@@ -833,12 +832,24 @@ get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cor
                                            toler = NULL, maxiter = NULL, weights_to = NULL, out2 = "list", ...){
   placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
   placeholder_set <- placeholders[!is.na(placeholders)]
-  base_classes <- setdiff(class(coin), "unbalanced_coin")
-  if(length(base_classes) == 0){
-    base_classes <- "coin"
-  }
-  base_coin <- structure(coin, class = base_classes)
+  base_coin <- coin
   level_codes <- coin$Meta$Weights$Original$iCode[coin$Meta$Weights$Original$Level == Level]
+
+  if(length(placeholder_set) > 0 && !is.null(base_coin$Meta$Ind)){
+    keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"))
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+  }
+
+  added_cols <- character(0)
+  if(!missing(dset) && !is.null(dset) && dset %in% names(base_coin$Data)){
+    prepared <- .prepare_unbalanced_dataset(base_coin, dset)
+    base_coin$Data[[dset]] <- prepared$data
+    added_cols <- prepared$added
+  }
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
 
   res <- get_opt_weights.coin(base_coin, itarg = itarg, dset = dset, Level = Level, cortype = cortype,
                               optype = optype, toler = toler, maxiter = maxiter, weights_to = weights_to,
@@ -887,6 +898,10 @@ get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cor
         res$Analysis$Weights[[weights_name]]$CorrResultsNorm <- df
       }
     }
+    if(length(added_cols) > 0 && !is.null(dset) && !is.null(res$Data[[dset]])){
+      keep <- setdiff(names(res$Data[[dset]]), added_cols)
+      res$Data[[dset]] <- res$Data[[dset]][keep]
+    }
     res <- .ensure_unbalanced_class(res)
   }
 
@@ -906,6 +921,10 @@ get_noisy_weights.unbalanced_coin <- function(w, noise_specs, Nrep, ...){
     base_classes <- "coin"
   }
   base_coin <- structure(coin, class = base_classes)
+  if(length(placeholder_set) > 0 && !is.null(base_coin$Meta$Ind)){
+    keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"))
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+  }
   weight_df <- base_coin$Meta$Weights$Original
 
   noisy <- get_noisy_weights.data.frame(weight_df, noise_specs = noise_specs, Nrep = Nrep, ...)
