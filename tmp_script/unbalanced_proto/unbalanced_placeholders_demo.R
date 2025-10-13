@@ -21,15 +21,6 @@ coin <- Impute(coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
 coin <- Denominate(coin, dset = "Imputed", write_to = "Denominated")
 coin <- Treat(coin, dset = "Denominated", write_to = "Treated")
 coin <- Normalise(coin, dset = "Treated", write_to = "Normalised")
-
-# rebuild placeholder indicator used to balance hierarchy
-if(!"AggSolo_AggSolo_ph_1" %in% names(coin$Data$Normalised)){
-  wts <- c(IndA1 = 0.5, IndA2 = 0.5)
-  norm_data <- coin$Data$Normalised
-  agg_vals <- rowSums(sweep(norm_data[c("IndA1", "IndA2")], 2, wts, `*`), na.rm = TRUE) / sum(wts)
-  coin$Data$Normalised$AggSolo_AggSolo_ph_1 <- agg_vals
-}
-
 coin <- Aggregate(coin, dset = "Normalised")
 coin <- Screen(coin, dset = "Normalised", unit_screen = "byNA", dat_thresh = 0.9)
 
