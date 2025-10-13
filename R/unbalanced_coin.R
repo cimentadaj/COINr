@@ -604,8 +604,13 @@ get_corr.unbalanced_coin <- function(coin, ...){
     base_classes <- "coin"
   }
   base_coin <- structure(coin, class = base_classes)
-  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[!(base_coin$Meta$Ind$iCode %in% placeholders), , drop = FALSE]
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   }
   res <- get_corr.coin(base_coin, ...)
   .strip_placeholder_corr(res, placeholders)
