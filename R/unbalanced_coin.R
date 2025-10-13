@@ -130,6 +130,103 @@
   res
 }
 
+.prepare_unbalanced_dataset <- function(coin, dset_name){
+  data_dset <- coin$Data[[dset_name]]
+  .augment_with_placeholders(coin, dset_name, data_dset, use_cache = TRUE)
+}
+
+.augment_with_placeholders <- function(coin, dset_name, data_dset, use_cache = TRUE){
+  added_cols <- character(0)
+  if(is.null(data_dset)){
+    return(list(data = data_dset, added = added_cols))
+  }
+
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  ph_map <- coin$Meta$Unbalanced$PlaceholderMap
+
+  agg_cols <- coin$Meta$Unbalanced$AggregateInputColumns
+  agg_data <- coin$Meta$Unbalanced$AggregateInputData
+
+  if(!is.null(agg_cols) && length(agg_cols) > 0 && !is.null(agg_data)){
+    missing_agg <- setdiff(agg_cols, names(data_dset))
+    if(length(missing_agg) > 0){
+      available <- intersect(missing_agg, names(agg_data))
+      if(length(available) > 0){
+        for(col in available){
+          data_dset[[col]] <- agg_data[[col]]
+        }
+        added_cols <- c(added_cols, available)
+      }
+    }
+  }
+
+  if(use_cache){
+    placeholder_cache <- coin$Meta$Unbalanced$PlaceholderData
+    if(!is.null(placeholder_cache) && !is.null(dset_name) && dset_name %in% names(placeholder_cache)){
+      cache_df <- placeholder_cache[[dset_name]]
+      if(is.data.frame(cache_df) && nrow(cache_df) > 0){
+        cache_cols <- setdiff(intersect(names(cache_df), placeholders), names(data_dset))
+        if(length(cache_cols) > 0 && "uCode" %in% names(data_dset) && "uCode" %in% names(cache_df)){
+          match_idx <- match(data_dset$uCode, cache_df$uCode)
+          for(col in cache_cols){
+            data_dset[[col]] <- cache_df[[col]][match_idx]
+          }
+          added_cols <- c(added_cols, cache_cols)
+        }
+      }
+    }
+  }
+
+  if(length(placeholders) > 0 && !is.null(ph_map)){
+    for(child in names(ph_map)){
+      ph_codes <- ph_map[[child]]
+      if(length(ph_codes) == 0){
+        next
+      }
+      if(!(child %in% names(data_dset))){
+        next
+      }
+      missing_ph <- ph_codes[!(ph_codes %in% names(data_dset))]
+      if(length(missing_ph) == 0){
+        next
+      }
+      template <- data_dset[[child]]
+      for(ph_code in missing_ph){
+        data_dset[[ph_code]] <- template
+      }
+      added_cols <- c(added_cols, missing_ph)
+    }
+  }
+
+  list(data = data_dset, added = unique(added_cols))
+}
+
+.cache_unbalanced_placeholders <- function(coin, dset_name, data_override = NULL){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0 || is.null(dset_name)){
+    return(coin)
+  }
+  if(is.null(coin$Meta$Unbalanced$PlaceholderData)){
+    coin$Meta$Unbalanced$PlaceholderData <- list()
+  }
+  data_dset <- if(is.null(data_override)) coin$Data[[dset_name]] else data_override
+  if(is.null(data_dset)){
+    coin$Meta$Unbalanced$PlaceholderData[[dset_name]] <- NULL
+    return(coin)
+  }
+  enriched <- .augment_with_placeholders(coin, dset_name, data_dset, use_cache = FALSE)
+  placeholder_cols <- intersect(names(enriched$data), placeholders)
+  if(length(placeholder_cols) == 0){
+    coin$Meta$Unbalanced$PlaceholderData[[dset_name]] <- NULL
+    return(coin)
+  }
+  keep_cols <- unique(c("uCode", placeholder_cols))
+  keep_cols <- keep_cols[keep_cols %in% names(enriched$data)]
+  coin$Meta$Unbalanced$PlaceholderData[[dset_name]] <- enriched$data[keep_cols]
+  coin
+}
+
 .sanitize_lineage <- function(lineage, placeholders){
   if(is.null(lineage) || length(placeholders) == 0){
     return(lineage)
@@ -376,6 +473,16 @@ new_unbalanced_coin <- function(iData, iMeta, exclude = NULL, split_to = NULL,
   coin$Meta$maxlev_balanced <- max(meta_balanced$Level, na.rm = TRUE)
   coin$Meta$maxlev <- max(meta_unbalanced$Level, na.rm = TRUE)
 
+  coin$Meta$Unbalanced$PlaceholderData <- list()
+  if("Raw" %in% names(coin$Data)){
+    coin <- .cache_unbalanced_placeholders(coin, "Raw")
+    placeholders_raw <- placeholder_codes[!is.na(placeholder_codes)]
+    if(length(placeholders_raw) > 0){
+      keep <- setdiff(names(coin$Data$Raw), placeholders_raw)
+      coin$Data$Raw <- coin$Data$Raw[keep]
+    }
+  }
+
   class(coin) <- unique(c("unbalanced_coin", class(coin)))
   coin
 }
@@ -430,37 +537,27 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
     write_to_name <- "Aggregated"
   }
 
+  dset_name <- if("dset" %in% names(call)) eval(call$dset, parent.frame()) else dset
+  base_classes <- setdiff(class(x), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(x, class = base_classes)
+
   added_cols <- character(0)
-  if(length(placeholders) > 0 && !is.null(x$Meta$Unbalanced$PlaceholderMap)){
-    ph_map <- x$Meta$Unbalanced$PlaceholderMap
-    dset_name <- if("dset" %in% names(call)) eval(call$dset, parent.frame()) else dset
-    if(!is.null(dset_name) && !is.null(x$Data[[dset_name]])){
-      data_dset <- x$Data[[dset_name]]
-      for(child in names(ph_map)){
-        ph_codes <- ph_map[[child]]
-        if(length(ph_codes) == 0){
-          next
-        }
-        for(ph_code in ph_codes){
-          if(!(ph_code %in% placeholders)){
-            next
-          }
-          if(ph_code %in% names(data_dset)){
-            next
-          }
-          if(child %in% names(data_dset)){
-            data_dset[[ph_code]] <- data_dset[[child]]
-            added_cols <- c(added_cols, ph_code)
-          }
-        }
-      }
-      if(length(added_cols) > 0){
-        x$Data[[dset_name]] <- data_dset
-      }
-    }
+  if(!is.null(dset_name) && dset_name %in% names(base_coin$Data)){
+    prepared <- .prepare_unbalanced_dataset(base_coin, dset_name)
+    base_coin$Data[[dset_name]] <- prepared$data
+    added_cols <- prepared$added
   }
 
-  res <- NextMethod(out2 = next_out2)
+  call_next <- call
+  call_next[[1]] <- quote(Aggregate.coin)
+  call_next$x <- base_coin
+  call_next$out2 <- next_out2
+  call_next$dset <- dset_name
+  call_next$write_to <- write_to_name
+  res <- eval.parent(call_next)
 
   if(is.data.frame(res)){
     if(length(placeholders) > 0){
@@ -469,15 +566,18 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
     return(res)
   }
 
+  res <- .cache_unbalanced_placeholders(res, dset_name)
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
+
   if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
   }
 
-  if(length(added_cols) > 0){
-    dset_name <- if("dset" %in% names(call)) eval(call$dset, parent.frame()) else dset
-    if(!is.null(dset_name) && !is.null(res$Data[[dset_name]])){
-      keep <- setdiff(names(res$Data[[dset_name]]), added_cols)
+  if(!is.null(dset_name) && !is.null(res$Data[[dset_name]])){
+    drop_cols <- unique(c(added_cols, placeholders))
+    if(length(drop_cols) > 0){
+      keep <- setdiff(names(res$Data[[dset_name]]), drop_cols)
       res$Data[[dset_name]] <- res$Data[[dset_name]][keep]
     }
   }
@@ -1010,6 +1110,8 @@ Impute.unbalanced_coin <- function(x, dset, f_i = NULL, f_i_para = NULL, impute_
     return(res)
   }
 
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
+
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
@@ -1054,6 +1156,8 @@ Normalise.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs 
     res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
+
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
 
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
@@ -1104,6 +1208,8 @@ Denominate.unbalanced_coin <- function(x, dset, denoms = NULL, denomby = NULL, d
     res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
+
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
 
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
@@ -1158,6 +1264,8 @@ Treat.unbalanced_coin <- function(x, dset, global_specs = NULL, indiv_specs = NU
     return(res)
   }
 
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
+
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
@@ -1187,6 +1295,8 @@ Custom.unbalanced_coin <- function(x, dset, f_cust, f_cust_para = NULL, write_to
   }
 
   res <- NextMethod()
+
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
 
   if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
@@ -1236,6 +1346,8 @@ Screen.unbalanced_coin <- function(x, dset, unit_screen, dat_thresh = NULL, nonz
     res <- res[setdiff(names(res), placeholders)]
     return(res)
   }
+
+  res <- .cache_unbalanced_placeholders(res, write_to_name)
 
   if(!is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)

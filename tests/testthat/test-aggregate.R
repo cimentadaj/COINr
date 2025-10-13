@@ -126,9 +126,15 @@ test_that("Aggregate handles unbalanced coins", {
   coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
   coin_unbal <- Aggregate(coin_unbal, dset = "Raw")
 
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
   expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
   expect_setequal(names(coin_unbal$Data$Aggregated),
                   c("uCode", "IndA1", "IndA2", "IndB", "SubA", "Index"))
+
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Raw)))
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Aggregated)))
 
   expected_subA <- rowMeans(unbal_iData[c("IndA1", "IndA2")])
   expect_equal(coin_unbal$Data$Aggregated$SubA, expected_subA)
@@ -136,6 +142,37 @@ test_that("Aggregate handles unbalanced coins", {
   expected_index <- (expected_subA * 0.5 + unbal_iData$IndB * 0.5) / (0.5 + 0.5)
   expect_equal(coin_unbal$Data$Aggregated$Index, expected_index)
 
+})
+
+test_that("Aggregate.unbalanced_coin returns placeholder-free data frames", {
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  agg_df <- Aggregate(coin_unbal, dset = "Raw", out2 = "df")
+
+  expect_false(any(placeholders %in% names(agg_df)))
+})
+
+test_that("Aggregate handles unbalanced pipelines after multiple verbs", {
+  coin_unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+
+  coin_unbal <- Impute(coin_unbal, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Imputed)))
+
+  coin_unbal <- Normalise(coin_unbal, dset = "Imputed", write_to = "Normalised")
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Normalised)))
+
+  expect_true(all(placeholders %in% names(coin_unbal$Meta$Unbalanced$PlaceholderData$Normalised)))
+
+  coin_unbal <- Aggregate(coin_unbal, dset = "Normalised")
+
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Normalised)))
+  expect_false(any(placeholders %in% names(coin_unbal$Data$Aggregated)))
+  expect_setequal(names(coin_unbal$Data$Aggregated),
+                  c("uCode", "IndA1", "IndA2", "IndB", "SubA", "Index"))
 })
 
 test_that("agg_functions", {
