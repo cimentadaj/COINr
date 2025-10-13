@@ -29,3 +29,7 @@ print(coin$Meta$Unbalanced$BalancedMeta)
 
 cat("\nSCENARIO 1 - RESULTS SUMMARY\n")
 print(get_results(coin, dset = "Aggregated", tab_type = "Aggs"))
+print(get_corr(coin, dset = "Aggregated", make_long = FALSE))
+print(get_cronbach(coin, dset = "Aggregated", iCodes = c("IndA1", "IndA2"), Level = 1))
+print(get_corr(coin, dset = "Aggregated", make_long = FALSE))
+print(get_cronbach(coin, dset = "Aggregated", iCodes = c("IndA1", "IndA2"), Level = 1))
