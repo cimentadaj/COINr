@@ -166,6 +166,8 @@
     meta$IsPlaceholder <- FALSE
   }
 
+  original_level_map <- stats::setNames(meta$Level, meta$iCode)
+
   data_codes <- unique(setdiff(data_codes, c("uCode", "uName", "Time")))
 
   placeholder_rows <- list()
@@ -263,8 +265,13 @@
 
   # recompute levels now balanced
   levels_balanced <- .compute_levels(meta)
-  meta$Level <- ifelse(meta$Type %in% c("Indicator", "Aggregate"),
-                       levels_balanced[meta$iCode], meta$Level)
+  placeholder_mask <- meta$IsPlaceholder %in% TRUE
+  orig_levels_aligned <- original_level_map[meta$iCode]
+  meta$Level <- ifelse(placeholder_mask,
+                       levels_balanced[meta$iCode],
+                       ifelse(!is.na(orig_levels_aligned),
+                              orig_levels_aligned,
+                              levels_balanced[meta$iCode]))
   meta$IsPlaceholder[is.na(meta$IsPlaceholder)] <- FALSE
 
   list(meta = meta,
