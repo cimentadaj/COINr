@@ -73,160 +73,48 @@ test_that("new_unbalanced_coin balances hierarchy", {
 
 test_that("new_unbalanced_coin handles aggregate column supplied in data", {
 
-  data("unbal_iData", package = "COINr")
-  data("unbal_iMeta", package = "COINr")
+  data("unbal_scen1_iData", package = "COINr")
+  data("unbal_scen1_iMeta", package = "COINr")
 
-  meta1 <- unbal_iMeta
-  meta1$Parent[meta1$Parent == ""] <- NA_character_
-  meta1 <- meta1[order(meta1$Level, meta1$iCode), ]
-
-  idata1 <- unbal_iData
-  idata1$AggSolo <- rowMeans(idata1[c("IndA1", "IndA2")])
-
-  agg_row <- data.frame(
-    iCode = "AggSolo",
-    Level = 2L,
-    Parent = "Index",
-    Direction = 1L,
-    Weight = 0.5,
-    Type = "Aggregate",
-    stringsAsFactors = FALSE
-  )
-  meta1_ext <- rbind(meta1, agg_row)
-  meta1_ext$Parent[meta1_ext$Parent == ""] <- NA_character_
-  meta1_ext <- meta1_ext[order(meta1_ext$Level, meta1_ext$iCode), ]
-  rownames(meta1_ext) <- NULL
-
-  coin <- new_unbalanced_coin(idata1, meta1_ext, quietly = TRUE)
+  coin <- new_unbalanced_coin(unbal_scen1_iData, unbal_scen1_iMeta, quietly = TRUE)
 
   balanced <- coin$Meta$Unbalanced$BalancedMeta
-  restored <- restore_original_meta(balanced, meta1_ext)
+  restored <- restore_original_meta(balanced, unbal_scen1_iMeta)
 
-  expect_identical(restored, meta1_ext)
+  expect_identical(restored, unbal_scen1_iMeta)
   expect_true(any(coin$Meta$Unbalanced$BalancedMeta$IsPlaceholder))
 })
 
 test_that("new_unbalanced_coin handles indicators skipping intermediate levels", {
 
-  data("unbal_iData", package = "COINr")
-  data("unbal_iMeta", package = "COINr")
+  data("unbal_scen2_iData", package = "COINr")
+  data("unbal_scen2_iMeta", package = "COINr")
 
-  idata2 <- unbal_iData
-  meta2 <- unbal_iMeta
-  meta2$Parent[meta2$Parent == ""] <- NA_character_
-  meta2 <- meta2[order(meta2$Level, meta2$iCode), ]
-
-  idata2$SkipIndicator <- idata2$IndB * 1.1
-
-  top_row <- data.frame(
-    iCode = "Mega",
-    Level = 4L,
-    Parent = NA_character_,
-    Direction = 1L,
-    Weight = 1,
-    Type = "Aggregate",
-    stringsAsFactors = FALSE
-  )
-  meta2_ext <- rbind(meta2, top_row)
-  meta2_ext$Parent[meta2_ext$Parent == ""] <- NA_character_
-  idx_index <- meta2_ext$iCode == "Index"
-  meta2_ext$Parent[idx_index] <- "Mega"
-  meta2_ext$Weight[idx_index] <- 0.5
-
-  skip_row <- data.frame(
-    iCode = "SkipIndicator",
-    Level = 1L,
-    Parent = "Mega",
-    Direction = 1L,
-    Weight = 0.5,
-    Type = "Indicator",
-    stringsAsFactors = FALSE
-  )
-  meta2_ext <- rbind(meta2_ext, skip_row)
-  meta2_ext$Parent[meta2_ext$Parent == ""] <- NA_character_
-  meta2_ext <- meta2_ext[order(meta2_ext$Level, meta2_ext$iCode), ]
-  rownames(meta2_ext) <- NULL
-
-  coin <- new_unbalanced_coin(idata2, meta2_ext, quietly = TRUE)
+  coin <- new_unbalanced_coin(unbal_scen2_iData, unbal_scen2_iMeta, quietly = TRUE)
   balanced <- coin$Meta$Unbalanced$BalancedMeta
-  restored <- restore_original_meta(balanced, meta2_ext)
+  restored <- restore_original_meta(balanced, unbal_scen2_iMeta)
 
-  expect_identical(restored, meta2_ext)
+  expect_identical(restored, unbal_scen2_iMeta)
   expect_true(length(coin$Meta$Unbalanced$PlaceholderCodes) >= 1)
 })
 
 test_that("new_unbalanced_coin handles multiple branches requiring placeholders", {
 
-  data("unbal_iData", package = "COINr")
-  data("unbal_iMeta", package = "COINr")
+  data("unbal_scen3_iData", package = "COINr")
+  data("unbal_scen3_iMeta", package = "COINr")
 
-  idata3 <- unbal_iData
-  meta3 <- unbal_iMeta
-  meta3$Parent[meta3$Parent == ""] <- NA_character_
-  meta3 <- meta3[order(meta3$Level, meta3$iCode), ]
-
-  idata3$IndC <- idata3$IndA1 * 0.8
-  idata3$IndD <- idata3$IndA2 * 1.2
-  idata3$IndE <- idata3$IndB * 0.9
-  idata3$AggWide <- rowMeans(idata3[c("IndC", "IndD")])
-
-  meta3_ext <- meta3
-  meta3_ext$Weight[meta3_ext$iCode == "SubA"] <- 0.2
-  meta3_ext$Weight[meta3_ext$iCode == "IndB"] <- 0.2
-
-  new_rows <- rbind(
-    data.frame(iCode = "IndC", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Indicator", stringsAsFactors = FALSE),
-    data.frame(iCode = "IndD", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Indicator", stringsAsFactors = FALSE),
-    data.frame(iCode = "IndE", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Indicator", stringsAsFactors = FALSE),
-    data.frame(iCode = "AggWide", Level = 2L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Aggregate", stringsAsFactors = FALSE)
-  )
-
-  meta3_ext <- rbind(meta3_ext, new_rows)
-  meta3_ext$Parent[meta3_ext$Parent == ""] <- NA_character_
-  meta3_ext <- meta3_ext[order(meta3_ext$Level, meta3_ext$iCode), ]
-  rownames(meta3_ext) <- NULL
-
-  coin <- new_unbalanced_coin(idata3, meta3_ext, quietly = TRUE)
+  coin <- new_unbalanced_coin(unbal_scen3_iData, unbal_scen3_iMeta, quietly = TRUE)
   balanced <- coin$Meta$Unbalanced$BalancedMeta
-  restored <- restore_original_meta(balanced, meta3_ext)
+  restored <- restore_original_meta(balanced, unbal_scen3_iMeta)
 
-  expect_identical(restored, meta3_ext)
+  expect_identical(restored, unbal_scen3_iMeta)
   expect_true(length(coin$Meta$Unbalanced$PlaceholderCodes) >= 1)
 })
 
 test_that("new_unbalanced_coin errors when aggregates remain at level 1", {
 
-  data("unbal_iData", package = "COINr")
-  data("unbal_iMeta", package = "COINr")
-
-  idata3 <- unbal_iData
-  meta3 <- unbal_iMeta
-  meta3$Parent[meta3$Parent == ""] <- NA_character_
-  meta3 <- meta3[order(meta3$Level, meta3$iCode), ]
-
-  idata3$IndC <- idata3$IndA1 * 0.8
-  idata3$IndD <- idata3$IndA2 * 1.2
-  idata3$IndE <- idata3$IndB * 0.9
-  idata3$AggWide <- rowMeans(idata3[c("IndC", "IndD")])
-
-  meta3_ext <- meta3
-  meta3_ext$Weight[meta3_ext$iCode == "SubA"] <- 0.2
-  meta3_ext$Weight[meta3_ext$iCode == "IndB"] <- 0.2
-
-  new_rows <- rbind(
-    data.frame(iCode = "IndC", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Aggregate", stringsAsFactors = FALSE),
-    data.frame(iCode = "IndD", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Indicator", stringsAsFactors = FALSE),
-    data.frame(iCode = "IndE", Level = 1L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Indicator", stringsAsFactors = FALSE),
-    data.frame(iCode = "AggWide", Level = 2L, Parent = "Index", Direction = 1L, Weight = 0.2, Type = "Aggregate", stringsAsFactors = FALSE)
-  )
-
-  meta3_ext <- rbind(meta3_ext, new_rows)
-  meta3_ext$Parent[meta3_ext$Parent == ""] <- NA_character_
-  meta3_ext <- meta3_ext[order(meta3_ext$Level, meta3_ext$iCode), ]
-  rownames(meta3_ext) <- NULL
-
   expect_error(
-    new_unbalanced_coin(idata3, meta3_ext, quietly = TRUE),
+    new_unbalanced_coin(unbal_scen3_iData, unbal_scen4_iMeta, quietly = TRUE),
     "Aggregates must have level 2 or higher",
     fixed = TRUE
   )

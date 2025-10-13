@@ -430,6 +430,36 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
     write_to_name <- "Aggregated"
   }
 
+  added_cols <- character(0)
+  if(length(placeholders) > 0 && !is.null(x$Meta$Unbalanced$PlaceholderMap)){
+    ph_map <- x$Meta$Unbalanced$PlaceholderMap
+    dset_name <- if("dset" %in% names(call)) eval(call$dset, parent.frame()) else dset
+    if(!is.null(dset_name) && !is.null(x$Data[[dset_name]])){
+      data_dset <- x$Data[[dset_name]]
+      for(child in names(ph_map)){
+        ph_codes <- ph_map[[child]]
+        if(length(ph_codes) == 0){
+          next
+        }
+        for(ph_code in ph_codes){
+          if(!(ph_code %in% placeholders)){
+            next
+          }
+          if(ph_code %in% names(data_dset)){
+            next
+          }
+          if(child %in% names(data_dset)){
+            data_dset[[ph_code]] <- data_dset[[child]]
+            added_cols <- c(added_cols, ph_code)
+          }
+        }
+      }
+      if(length(added_cols) > 0){
+        x$Data[[dset_name]] <- data_dset
+      }
+    }
+  }
+
   res <- NextMethod(out2 = next_out2)
 
   if(is.data.frame(res)){
@@ -442,6 +472,14 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
   if(length(placeholders) > 0 && !is.null(res$Data[[write_to_name]])){
     keep <- setdiff(names(res$Data[[write_to_name]]), placeholders)
     res$Data[[write_to_name]] <- res$Data[[write_to_name]][keep]
+  }
+
+  if(length(added_cols) > 0){
+    dset_name <- if("dset" %in% names(call)) eval(call$dset, parent.frame()) else dset
+    if(!is.null(dset_name) && !is.null(res$Data[[dset_name]])){
+      keep <- setdiff(names(res$Data[[dset_name]]), added_cols)
+      res$Data[[dset_name]] <- res$Data[[dset_name]][keep]
+    }
   }
 
   if(identical(out2, "unbalanced_coin")){

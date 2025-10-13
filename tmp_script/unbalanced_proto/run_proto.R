@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 
 devtools::install_github('cimentadaj/COINr@unbalanced-coin-prototype')
+devtools::load_all()
 library(COINr)
 
 # -----------------------------------------------------------------------------
