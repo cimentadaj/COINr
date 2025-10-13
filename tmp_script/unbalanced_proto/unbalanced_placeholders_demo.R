@@ -39,6 +39,7 @@ cat("\nADDITIONAL EXAMPLES\n")
 print(get_data_avail(coin, dset = "Aggregated", out2 = "list"))
 print(get_pvals(coin, dset = "Normalised", Level = 1))
 print(get_eff_weights(coin, out2 = "df"))
+print(get_PCA(coin, dset = "Aggregated", Level = 2, by_groups = TRUE, out2 = "list", nowarnings = TRUE))
 print(get_stats(coin, dset = "Aggregated", out2 = "df"))
 print(get_unit_summary(coin, usel = "U2", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL))
 

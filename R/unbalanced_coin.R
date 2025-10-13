@@ -960,22 +960,22 @@ get_PCA.unbalanced_coin <- function(coin, dset = "Raw", iCodes = NULL, Level = N
   }
   base_coin <- structure(coin, class = base_classes)
 
-  if(length(placeholders) > 0 && !is.null(coin$Meta$Unbalanced$PlaceholderMap)){
-    ph_map <- coin$Meta$Unbalanced$PlaceholderMap
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
     if(!is.null(dset) && dset %in% names(base_coin$Data)){
-      for(child in names(ph_map)){
-        ph_codes <- ph_map[[child]]
-        if(length(ph_codes) == 0){
-          next
-        }
-        for(ph_code in ph_codes){
-          if(!ph_code %in% names(base_coin$Data[[dset]]) && child %in% names(base_coin$Data[[dset]])){
-            base_coin$Data[[dset]][[ph_code]] <- base_coin$Data[[dset]][[child]]
-          }
-        }
-      }
+      keep_cols <- setdiff(names(base_coin$Data[[dset]]), placeholders)
+      base_coin$Data[[dset]] <- base_coin$Data[[dset]][keep_cols]
     }
   }
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
 
   res <- get_PCA.coin(base_coin, dset = dset, iCodes = iCodes, Level = Level, by_groups = by_groups,
                       nowarnings = nowarnings, weights_to = weights_to, out2 = out2, ...)

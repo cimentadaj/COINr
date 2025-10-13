@@ -43,13 +43,14 @@ test_that("get_PCA.unbalanced_coin strips placeholders", {
   unbal_wts <- setNames(l_unbal$Weights$Weight, l_unbal$Weights$iCode)
 
   balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
-  if(length(unbal$Meta$Unbalanced$PlaceholderMap) > 0 && "Aggregated" %in% names(balanced$Data)){
-    ph_map <- unbal$Meta$Unbalanced$PlaceholderMap
-    for(child in names(ph_map)){
-      ph_code <- ph_map[[child]]
-      if(!ph_code %in% names(balanced$Data$Aggregated) && child %in% names(balanced$Data$Aggregated)){
-        balanced$Data$Aggregated[[ph_code]] <- balanced$Data$Aggregated[[child]]
-      }
+  if(length(ph_codes) > 0){
+    if(!is.null(balanced$Meta$Ind)){
+      balanced$Meta$Ind <- balanced$Meta$Ind[!(balanced$Meta$Ind$iCode %in% ph_codes), , drop = FALSE]
+    }
+    balanced$Meta$Lineage <- COINr::: .sanitize_lineage(balanced$Meta$Lineage, ph_codes)
+    if(!is.null(balanced$Data$Aggregated)){
+      keep_cols <- setdiff(names(balanced$Data$Aggregated), ph_codes)
+      balanced$Data$Aggregated <- balanced$Data$Aggregated[keep_cols]
     }
   }
   l_bal <- get_PCA.coin(balanced, dset = "Aggregated", Level = 2, by_groups = TRUE,
