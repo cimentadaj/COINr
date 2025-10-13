@@ -693,6 +693,7 @@ get_results.unbalanced_coin <- function(coin, dset, tab_type = "Summ", also_get 
 get_stats.unbalanced_coin <- function(x, dset, t_skew = 2, t_kurt = 3.5, t_avail = 0.65,
                                       t_zero = 0.5, t_unq = 0.5, nsignif = 3, out2 = "df", ...){
   placeholders <- x$Meta$Unbalanced$PlaceholderCodes
+  keep_placeholders <- isTRUE(getOption("COINr.keep_placeholders"))
   base_classes <- setdiff(class(x), "unbalanced_coin")
   if(length(base_classes) == 0){
     base_classes <- "coin"
@@ -701,10 +702,16 @@ get_stats.unbalanced_coin <- function(x, dset, t_skew = 2, t_kurt = 3.5, t_avail
 
   if(length(placeholders) > 0){
     if(!is.null(base_coin$Meta$Ind)){
-      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+      keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
     }
     base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   }
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
 
   res <- get_stats.coin(base_coin, dset = dset, t_skew = t_skew, t_kurt = t_kurt,
                         t_avail = t_avail, t_zero = t_zero, t_unq = t_unq,
@@ -718,11 +725,14 @@ get_stats.unbalanced_coin <- function(x, dset, t_skew = 2, t_kurt = 3.5, t_avail
   }
 
   if(is.data.frame(res)){
+    if(!keep_placeholders){
+      res <- .strip_placeholder_results(res, placeholders)
+    }
     return(.strip_placeholder_results(res, placeholders))
   }
 
   if(identical(out2, "coin") && inherits(res, "coin")){
-    if(!is.null(res$Analysis[[dset]][["Stats"]])){
+    if(!keep_placeholders && !is.null(res$Analysis[[dset]][["Stats"]])){
       res$Analysis[[dset]][["Stats"]] <- .strip_placeholder_results(res$Analysis[[dset]][["Stats"]], placeholders)
     }
     res <- .ensure_unbalanced_class(res)

@@ -39,6 +39,8 @@ cat("\nADDITIONAL EXAMPLES\n")
 print(get_data_avail(coin, dset = "Aggregated", out2 = "list"))
 print(get_pvals(coin, dset = "Normalised", Level = 1))
 print(get_eff_weights(coin, out2 = "df"))
+print(get_stats(coin, dset = "Aggregated", out2 = "df"))
+print(get_unit_summary(coin, usel = "U2", Levels = c(1, 2, 3), dset = "Aggregated", nround = NULL))
 
 level2_codes <- coin$Meta$Ind$iCode[coin$Meta$Ind$Level == 2 &
                                      coin$Meta$Ind$Type == "Aggregate" &
@@ -49,3 +51,6 @@ print(opt_res$WeightsOpt)
 
 noise_specs <- data.frame(Level = c(1, 3), NoiseFactor = c(0.15, 0.10))
 print(get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3))
+
+res_removed <- remove_elements(coin, Level = 1, dset = "Aggregated", iCode = "IndB", quietly = TRUE)
+print(res_removed$Scores)

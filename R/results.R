@@ -242,6 +242,7 @@ get_unit_summary.coin <- function(coin, usel, Levels, dset = "Aggregated", nroun
 get_unit_summary.unbalanced_coin <- function(coin, usel, Levels, dset = "Aggregated", nround = 2, ...){
   placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
   placeholders <- placeholders[!is.na(placeholders)]
+  keep_placeholders <- isTRUE(getOption("COINr.keep_placeholders"))
 
   base_classes <- setdiff(class(coin), "unbalanced_coin")
   if(length(base_classes) == 0){
@@ -257,10 +258,16 @@ get_unit_summary.unbalanced_coin <- function(coin, usel, Levels, dset = "Aggrega
     base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   }
 
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
   res <- get_unit_summary.coin(base_coin, usel = usel, Levels = Levels, dset = dset, nround = nround, ...)
 
   if(length(placeholders) > 0 && is.data.frame(res)){
-    res <- res[!(res$Code %in% placeholders), , drop = FALSE]
+    if(!keep_placeholders){
+      res <- res[!(res$Code %in% placeholders), , drop = FALSE]
+    }
   }
 
   res
