@@ -77,6 +77,24 @@ unbal_scen2_iMeta <- rbind(unbal_scen2_iMeta, skip_row)
 unbal_scen2_iMeta$Parent[unbal_scen2_iMeta$Parent == ""] <- NA_character_
 unbal_scen2_iMeta <- unbal_scen2_iMeta[order(unbal_scen2_iMeta$Level, unbal_scen2_iMeta$iCode), ]
 rownames(unbal_scen2_iMeta) <- NULL
+if(!"DenomA" %in% unbal_scen2_iMeta$iCode){
+  denom_row2 <- data.frame(
+    iCode = "DenomA",
+    Level = NA_integer_,
+    Parent = NA_character_,
+    Direction = 1L,
+    Weight = NA_real_,
+    Type = "Denominator",
+    Denominator = NA_character_,
+    stringsAsFactors = FALSE
+  )
+  unbal_scen2_iMeta <- rbind(unbal_scen2_iMeta, denom_row2)
+}
+unbal_scen2_iMeta$Denominator[unbal_scen2_iMeta$iCode %in% c("IndA1", "IndA2", "IndB", "SkipIndicator")] <- "DenomA"
+unbal_scen2_iMeta <- unbal_scen2_iMeta[order(unbal_scen2_iMeta$Level, unbal_scen2_iMeta$iCode), ]
+rownames(unbal_scen2_iMeta) <- NULL
+
+unbal_scen2_iData$DenomA <- c(100, 120, 90)
 
 # Scenario 3: Wider branch requiring placeholders
 unbal_scen3_iData <- unbal_iData
@@ -99,6 +117,24 @@ unbal_scen3_iMeta <- rbind(unbal_scen3_iMeta, new_rows)
 unbal_scen3_iMeta$Parent[unbal_scen3_iMeta$Parent == ""] <- NA_character_
 unbal_scen3_iMeta <- unbal_scen3_iMeta[order(unbal_scen3_iMeta$Level, unbal_scen3_iMeta$iCode), ]
 rownames(unbal_scen3_iMeta) <- NULL
+if(!"DenomA" %in% unbal_scen3_iMeta$iCode){
+  denom_row3 <- data.frame(
+    iCode = "DenomA",
+    Level = NA_integer_,
+    Parent = NA_character_,
+    Direction = 1L,
+    Weight = NA_real_,
+    Type = "Denominator",
+    Denominator = NA_character_,
+    stringsAsFactors = FALSE
+  )
+  unbal_scen3_iMeta <- rbind(unbal_scen3_iMeta, denom_row3)
+}
+unbal_scen3_iMeta$Denominator[unbal_scen3_iMeta$iCode %in% c("IndA1", "IndA2", "IndB", "IndC", "IndD", "IndE")] <- "DenomA"
+unbal_scen3_iMeta <- unbal_scen3_iMeta[order(unbal_scen3_iMeta$Level, unbal_scen3_iMeta$iCode), ]
+rownames(unbal_scen3_iMeta) <- NULL
+
+unbal_scen3_iData$DenomA <- c(100, 120, 90)
 
 # Scenario 4 meta: same data as scenario 3 but aggregate left at Level 1
 unbal_scen4_iMeta <- unbal_scen3_iMeta
