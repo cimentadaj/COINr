@@ -34,3 +34,8 @@ print(get_cronbach(coin, dset = "Aggregated", iCodes = c("IndA1", "IndA2"), Leve
 print(get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 3))
 print(get_denom_corr(coin, dset = "Denominated", cor_thresh = 0.5))
 print(get_data(coin, dset = "Aggregated", Level = 3, also_get = "none"))
+
+cat("\nADDITIONAL EXAMPLES\n")
+print(get_data_avail(coin, dset = "Aggregated", out2 = "list"))
+print(get_pvals(coin, dset = "Normalised", Level = 1))
+print(get_eff_weights(coin, out2 = "df"))

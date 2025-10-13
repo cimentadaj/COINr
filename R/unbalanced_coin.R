@@ -629,7 +629,9 @@ get_pvals.unbalanced_coin <- function(x, dset, iCodes = NULL, Level = NULL,
   base_coin <- structure(x, class = base_classes)
   if(length(placeholders) > 0){
     if(!is.null(base_coin$Meta$Ind)){
-      base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+      keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
     }
     base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   }
@@ -801,6 +803,10 @@ get_eff_weights.unbalanced_coin <- function(coin, out2 = "df", ...){
     base_classes <- "coin"
   }
   base_coin <- structure(coin, class = base_classes)
+  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
+    keep_rows <- base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+  }
   res <- get_eff_weights.coin(base_coin, out2 = out2, ...)
 
   if(identical(out2, "df")){
@@ -1001,7 +1007,9 @@ get_data.unbalanced_coin <- function(x, ...){
   }
   base_coin <- structure(x, class = base_classes)
   if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+    keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+      !(base_coin$Meta$Ind$iCode %in% placeholders)
+    base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
   }
   base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   res <- get_data.coin(base_coin, ...)
