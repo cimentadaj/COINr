@@ -551,13 +551,18 @@ Aggregate.unbalanced_coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para 
     added_cols <- prepared$added
   }
 
-  call_next <- call
-  call_next[[1]] <- quote(Aggregate.coin)
-  call_next$x <- base_coin
-  call_next$out2 <- next_out2
-  call_next$dset <- dset_name
-  call_next$write_to <- write_to_name
-  res <- eval.parent(call_next)
+  res <- Aggregate.coin(
+    x = base_coin,
+    dset = dset_name,
+    f_ag = f_ag,
+    w = w,
+    f_ag_para = f_ag_para,
+    dat_thresh = dat_thresh,
+    by_df = by_df,
+    out2 = next_out2,
+    write_to = write_to_name,
+    ...
+  )
 
   if(is.data.frame(res)){
     if(length(placeholders) > 0){
