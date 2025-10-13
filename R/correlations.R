@@ -690,8 +690,13 @@ get_cronbach.unbalanced_coin <- function(coin, ...){
     base_classes <- "coin"
   }
   base_coin <- structure(coin, class = base_classes)
-  if(length(placeholders) > 0 && !is.null(base_coin$Meta$Ind)){
-    base_coin$Meta$Ind <- base_coin$Meta$Ind[base_coin$Meta$Ind$iCode %nin% placeholders, , drop = FALSE]
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind)){
+      keep_rows <- (base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+    }
+    base_coin$Meta$Lineage <- .sanitize_lineage(base_coin$Meta$Lineage, placeholders)
   }
   get_cronbach.coin(base_coin, ...)
 }
