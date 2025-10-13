@@ -158,22 +158,57 @@
 }
 
 # helper to balance metadata by inserting placeholders
-.balance_metadata <- function(meta){
+.balance_metadata <- function(meta, data_codes = character()){
   meta$Parent[meta$Parent == ""] <- NA_character_
   meta$Parent <- ifelse(is.na(meta$Parent), NA_character_, meta$Parent)
-  levels_initial <- .compute_levels(meta)
-  meta$Level <- ifelse(meta$Type %in% c("Indicator", "Aggregate"),
-                       levels_initial[meta$iCode], meta$Level)
+
+  if(!"IsPlaceholder" %in% names(meta)){
+    meta$IsPlaceholder <- FALSE
+  }
+
+  data_codes <- unique(setdiff(data_codes, c("uCode", "uName", "Time")))
 
   placeholder_rows <- list()
   placeholder_codes <- character(0)
   placeholder_map <- list()
   existing_codes <- meta$iCode
 
-  # ensure IsPlaceholder column exists for later flagging
-  if(!"IsPlaceholder" %in% names(meta)){
-    meta$IsPlaceholder <- FALSE
+  indicator_placeholder_rows <- list()
+
+  if(length(data_codes) > 0){
+    has_children <- meta$iCode %in% meta$Parent
+    agg_leaf_codes <- meta$iCode[meta$Type == "Aggregate" & !has_children & meta$iCode %in% data_codes]
+    if(length(agg_leaf_codes) > 0){
+      for(agg_code in agg_leaf_codes){
+        idx <- which(meta$iCode == agg_code)[1]
+        ph_code <- .make_placeholder_code(agg_code, agg_code, existing_codes,
+                                          length(indicator_placeholder_rows) + 1)
+        agg_row <- meta[idx, , drop = FALSE]
+        ph_row <- agg_row
+        for(col in names(ph_row)){ ph_row[[col]] <- NA }
+        ph_row$iCode <- ph_code
+        ph_row$Parent <- agg_code
+        ph_row$Type <- "Indicator"
+        ph_row$Weight <- 1
+        ph_row$Direction <- ifelse(is.na(agg_row$Direction), 1, agg_row$Direction)
+        ph_row$Level <- NA
+        ph_row$IsPlaceholder <- TRUE
+        indicator_placeholder_rows[[length(indicator_placeholder_rows) + 1]] <- ph_row
+        placeholder_codes <- c(placeholder_codes, ph_code)
+        placeholder_map[[agg_code]] <- unique(c(placeholder_map[[agg_code]], ph_code))
+        existing_codes <- c(existing_codes, ph_code)
+      }
+    }
   }
+
+  if(length(indicator_placeholder_rows) > 0){
+    indicator_df <- do.call(rbind, indicator_placeholder_rows)
+    meta <- rbind(meta, indicator_df)
+  }
+
+  levels_initial <- .compute_levels(meta)
+  meta$Level <- ifelse(meta$Type %in% c("Indicator", "Aggregate"),
+                       levels_initial[meta$iCode], meta$Level)
 
   for(idx in seq_len(nrow(meta))){
     row <- meta[idx, , drop = FALSE]
@@ -218,7 +253,7 @@
     meta$Parent[idx] <- prev_parent
     meta$IsPlaceholder[idx] <- ifelse(meta$IsPlaceholder[idx], TRUE, FALSE)
     placeholder_codes <- c(placeholder_codes, holder_codes)
-    placeholder_map[[child]] <- holder_codes
+    placeholder_map[[child]] <- unique(c(placeholder_map[[child]], holder_codes))
   }
 
   if(length(placeholder_rows) > 0){
@@ -261,20 +296,61 @@ new_unbalanced_coin <- function(iData, iMeta, exclude = NULL, split_to = NULL,
   iMeta$Parent[iMeta$Parent == ""] <- NA_character_
   iMeta$Type <- as.character(iMeta$Type)
 
-  balanced <- .balance_metadata(iMeta)
+  data_codes <- setdiff(names(iData), c("uCode", "uName", "Time"))
+  balanced <- .balance_metadata(iMeta, data_codes)
   meta_balanced <- balanced$meta
   placeholder_codes <- balanced$placeholders
   placeholder_map <- balanced$map
   levels_unbalanced <- balanced$levels_unbalanced
 
+  indicator_placeholders <- meta_balanced$iCode[meta_balanced$IsPlaceholder %in% TRUE &
+                                                  meta_balanced$Type == "Indicator"]
+  iData_balanced <- iData
+  if(length(indicator_placeholders) > 0 && length(placeholder_map) > 0){
+    for(child in names(placeholder_map)){
+      ph_codes <- placeholder_map[[child]]
+      if(length(ph_codes) == 0){
+        next
+      }
+      for(ph_code in ph_codes){
+        if(!(ph_code %in% indicator_placeholders)){
+          next
+        }
+        if(ph_code %in% names(iData_balanced)){
+          next
+        }
+        if(child %in% names(iData_balanced)){
+          iData_balanced[[ph_code]] <- iData_balanced[[child]]
+        } else {
+          iData_balanced[[ph_code]] <- rep(NA_real_, nrow(iData_balanced))
+          warning(sprintf("Placeholder indicator '%s' created from aggregate '%s' but source column not found in iData; filled with NA.", ph_code, child),
+                  call. = FALSE)
+        }
+      }
+    }
+  }
+
+  aggregate_codes <- meta_balanced$iCode[meta_balanced$Type == "Aggregate"]
+  removed_aggregate_cols <- intersect(names(iData_balanced), aggregate_codes)
+  aggregate_input_data <- NULL
+  if(length(removed_aggregate_cols) > 0){
+    aggregate_input_data <- iData_balanced[removed_aggregate_cols]
+    iData_balanced[removed_aggregate_cols] <- NULL
+  }
+
   meta_unbalanced <- iMeta
   meta_unbalanced$Level <- ifelse(meta_unbalanced$Type %in% c("Indicator", "Aggregate"),
                                   levels_unbalanced[meta_unbalanced$iCode],
                                   meta_unbalanced$Level)
+  if(!"IsPlaceholder" %in% names(meta_unbalanced)){
+    meta_unbalanced$IsPlaceholder <- FALSE
+  } else {
+    meta_unbalanced$IsPlaceholder[is.na(meta_unbalanced$IsPlaceholder)] <- FALSE
+  }
 
   lineage_unbalanced <- get_lineage(meta_unbalanced, level_names = level_names)
 
-  coin <- new_coin(iData, meta_balanced, exclude = exclude, split_to = split_to,
+  coin <- new_coin(iData_balanced, meta_balanced, exclude = exclude, split_to = split_to,
                    level_names = NULL, retain_all_uCodes_on_split = retain_all_uCodes_on_split,
                    quietly = quietly)
 
@@ -282,7 +358,10 @@ new_unbalanced_coin <- function(iData, iMeta, exclude = NULL, split_to = NULL,
     OriginalMeta = meta_unbalanced,
     BalancedMeta = meta_balanced,
     PlaceholderCodes = placeholder_codes,
-    PlaceholderMap = placeholder_map
+    PlaceholderMap = placeholder_map,
+    PlaceholderIndicators = indicator_placeholders,
+    AggregateInputColumns = removed_aggregate_cols,
+    AggregateInputData = aggregate_input_data
   )
   coin$Meta$Lineage_balanced <- coin$Meta$Lineage
   coin$Meta$Lineage_unbalanced <- lineage_unbalanced
@@ -520,7 +599,7 @@ get_sensitivity.unbalanced_coin <- function(coin, SA_specs, N, SA_type = "UA", d
     res$Nominal <- .strip_placeholder_results(res$Nominal, placeholders)
   }
 
-  if(diagnostic_mode && !is.null(res$coins)){ 
+  if(diagnostic_mode && !is.null(res$coins)){
     res$coins <- lapply(res$coins, function(x){
       if(is.coin(x)){
         .ensure_unbalanced_class(x)
@@ -690,9 +769,14 @@ get_PCA.unbalanced_coin <- function(coin, dset = "Raw", iCodes = NULL, Level = N
     ph_map <- coin$Meta$Unbalanced$PlaceholderMap
     if(!is.null(dset) && dset %in% names(base_coin$Data)){
       for(child in names(ph_map)){
-        ph_code <- ph_map[[child]]
-        if(!ph_code %in% names(base_coin$Data[[dset]]) && child %in% names(base_coin$Data[[dset]])){
-          base_coin$Data[[dset]][[ph_code]] <- base_coin$Data[[dset]][[child]]
+        ph_codes <- ph_map[[child]]
+        if(length(ph_codes) == 0){
+          next
+        }
+        for(ph_code in ph_codes){
+          if(!ph_code %in% names(base_coin$Data[[dset]]) && child %in% names(base_coin$Data[[dset]])){
+            base_coin$Data[[dset]][[ph_code]] <- base_coin$Data[[dset]][[child]]
+          }
         }
       }
     }
