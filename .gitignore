@@ -20,3 +20,4 @@ tmp_script/*
 !tmp_script/unbalanced_proto/
 tmp_script/unbalanced_proto/*
 !tmp_script/unbalanced_proto/run_proto.R
+!tmp_script/unbalanced_proto/unbalanced_placeholders_demo.R
