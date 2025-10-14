@@ -38,9 +38,18 @@
 #' # bar plot of CO2 by GDP per capita group
 #' plot_bar(coin, dset = "Raw", iCode = "CO2",
 #'          by_group = "GDPpc_group", axes_label = "iName")
+#' @export
 plot_bar <- function(coin, dset, iCode, ..., uLabel = "uCode", axes_label = "iCode",
                      by_group = NULL, filter_to_ends = NULL, dset_label = FALSE, log_scale = FALSE, stack_children = FALSE,
                      bar_colours = NULL, flip_coords = FALSE){
+  UseMethod("plot_bar")
+}
+
+#' @rdname plot_bar
+#' @export
+plot_bar.coin <- function(coin, dset, iCode, ..., uLabel = "uCode", axes_label = "iCode",
+                          by_group = NULL, filter_to_ends = NULL, dset_label = FALSE, log_scale = FALSE, stack_children = FALSE,
+                          bar_colours = NULL, flip_coords = FALSE){
 
   # PREP --------------------------------------------------------------------
 
@@ -226,4 +235,26 @@ plot_bar <- function(coin, dset, iCode, ..., uLabel = "uCode", axes_label = "iCo
 
   plt
 
+}
+
+#' @rdname plot_bar
+#' @export
+plot_bar.unbalanced_coin <- function(coin, dset, iCode, ..., uLabel = "uCode", axes_label = "iCode",
+                                     by_group = NULL, filter_to_ends = NULL, dset_label = FALSE, log_scale = FALSE, stack_children = FALSE,
+                                     bar_colours = NULL, flip_coords = FALSE){
+  delegate <- .prepare_placeholder_delegate(coin, dsets = dset)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_bar.coin(base_coin, dset = dset, iCode = iCode, ...,
+                       uLabel = uLabel, axes_label = axes_label, by_group = by_group,
+                       filter_to_ends = filter_to_ends, dset_label = dset_label,
+                       log_scale = log_scale, stack_children = stack_children,
+                       bar_colours = bar_colours, flip_coords = flip_coords)
+
+  .strip_placeholder_plot(res, placeholders)
 }

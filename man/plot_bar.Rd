@@ -2,9 +2,43 @@
 % Please edit documentation in R/plot_bar.R
 \name{plot_bar}
 \alias{plot_bar}
+\alias{plot_bar.coin}
+\alias{plot_bar.unbalanced_coin}
 \title{Bar chart}
 \usage{
 plot_bar(
+  coin,
+  dset,
+  iCode,
+  ...,
+  uLabel = "uCode",
+  axes_label = "iCode",
+  by_group = NULL,
+  filter_to_ends = NULL,
+  dset_label = FALSE,
+  log_scale = FALSE,
+  stack_children = FALSE,
+  bar_colours = NULL,
+  flip_coords = FALSE
+)
+
+\method{plot_bar}{coin}(
+  coin,
+  dset,
+  iCode,
+  ...,
+  uLabel = "uCode",
+  axes_label = "iCode",
+  by_group = NULL,
+  filter_to_ends = NULL,
+  dset_label = FALSE,
+  log_scale = FALSE,
+  stack_children = FALSE,
+  bar_colours = NULL,
+  flip_coords = FALSE
+)
+
+\method{plot_bar}{unbalanced_coin}(
   coin,
   dset,
   iCode,

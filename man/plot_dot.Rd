@@ -2,9 +2,43 @@
 % Please edit documentation in R/plot_dist.R
 \name{plot_dot}
 \alias{plot_dot}
+\alias{plot_dot.coin}
+\alias{plot_dot.unbalanced_coin}
 \title{Dot plots of single indicator with highlighting}
 \usage{
 plot_dot(
+  coin,
+  dset,
+  iCode,
+  Level = NULL,
+  ...,
+  usel = NULL,
+  marker_type = "circle",
+  add_stat = NULL,
+  stat_label = NULL,
+  show_ticks = TRUE,
+  plabel = NULL,
+  usel_label = TRUE,
+  vert_adjust = 0.5
+)
+
+\method{plot_dot}{coin}(
+  coin,
+  dset,
+  iCode,
+  Level = NULL,
+  ...,
+  usel = NULL,
+  marker_type = "circle",
+  add_stat = NULL,
+  stat_label = NULL,
+  show_ticks = TRUE,
+  plabel = NULL,
+  usel_label = TRUE,
+  vert_adjust = 0.5
+)
+
+\method{plot_dot}{unbalanced_coin}(
   coin,
   dset,
   iCode,

@@ -2,9 +2,12 @@
 % Please edit documentation in R/sensitivity.R
 \name{plot_sensitivity}
 \alias{plot_sensitivity}
+\alias{plot_sensitivity.list}
 \title{Plot sensitivity indices}
 \usage{
 plot_sensitivity(SAresults, ptype = "bar")
+
+\method{plot_sensitivity}{list}(SAresults, ptype = "bar")
 }
 \arguments{
 \item{SAresults}{A list of sensitivity/uncertainty analysis results from \code{\link[=plot_sensitivity]{plot_sensitivity()}}.}

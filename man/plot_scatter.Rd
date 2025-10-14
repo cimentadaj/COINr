@@ -2,9 +2,41 @@
 % Please edit documentation in R/plot_scatter.R
 \name{plot_scatter}
 \alias{plot_scatter}
+\alias{plot_scatter.coin}
+\alias{plot_scatter.unbalanced_coin}
 \title{Scatter plot of two variables}
 \usage{
 plot_scatter(
+  coin,
+  dsets,
+  iCodes,
+  ...,
+  by_group = NULL,
+  alpha = 0.5,
+  axes_label = "iCode",
+  dset_label = TRUE,
+  point_label = NULL,
+  check_overlap = TRUE,
+  nudge_y = 5,
+  log_scale = c(FALSE, FALSE)
+)
+
+\method{plot_scatter}{coin}(
+  coin,
+  dsets,
+  iCodes,
+  ...,
+  by_group = NULL,
+  alpha = 0.5,
+  axes_label = "iCode",
+  dset_label = TRUE,
+  point_label = NULL,
+  check_overlap = TRUE,
+  nudge_y = 5,
+  log_scale = c(FALSE, FALSE)
+)
+
+\method{plot_scatter}{unbalanced_coin}(
   coin,
   dsets,
   iCodes,

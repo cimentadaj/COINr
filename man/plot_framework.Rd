@@ -2,9 +2,31 @@
 % Please edit documentation in R/plot_framework.R
 \name{plot_framework}
 \alias{plot_framework}
+\alias{plot_framework.coin}
+\alias{plot_framework.unbalanced_coin}
 \title{Framework plots}
 \usage{
 plot_framework(
+  coin,
+  type = "sunburst",
+  colour_level = NULL,
+  text_colour = NULL,
+  text_size = NULL,
+  transparency = TRUE,
+  text_label = "iCode"
+)
+
+\method{plot_framework}{coin}(
+  coin,
+  type = "sunburst",
+  colour_level = NULL,
+  text_colour = NULL,
+  text_size = NULL,
+  transparency = TRUE,
+  text_label = "iCode"
+)
+
+\method{plot_framework}{unbalanced_coin}(
   coin,
   type = "sunburst",
   colour_level = NULL,

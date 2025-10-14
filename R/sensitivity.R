@@ -658,6 +658,23 @@ SA_sample <- function(N, d){
 #' @export
 plot_uncertainty <- function(SAresults, plot_units = NULL, order_by = "nominal",
                         dot_colour = NULL, line_colour = NULL){
+  UseMethod("plot_uncertainty")
+}
+
+#' @rdname plot_uncertainty
+#' @export
+plot_uncertainty.list <- function(SAresults, plot_units = NULL, order_by = "nominal",
+                        dot_colour = NULL, line_colour = NULL){
+
+  placeholders <- attr(SAresults, "placeholder_codes")
+  if(!is.null(placeholders) && length(placeholders) > 0){
+    if(!is.null(SAresults$RankStats)){
+      SAresults$RankStats <- .drop_placeholder_rows(SAresults$RankStats, placeholders)
+    }
+    if(!is.null(SAresults$Nominal)){
+      SAresults$Nominal <- .drop_placeholder_rows(SAresults$Nominal, placeholders)
+    }
+  }
 
   rnks <- SAresults$RankStats
 
@@ -760,8 +777,18 @@ plot_uncertainty <- function(SAresults, plot_units = NULL, order_by = "nominal",
 #'
 #' @export
 plot_sensitivity <- function(SAresults, ptype = "bar"){
+  UseMethod("plot_sensitivity")
+}
+
+#' @rdname plot_sensitivity
+#' @export
+plot_sensitivity.list <- function(SAresults, ptype = "bar"){
 
   stopifnot(is.list(SAresults))
+  placeholders <- attr(SAresults, "placeholder_codes")
+  if(!is.null(placeholders) && length(placeholders) > 0 && !is.null(SAresults$Sensitivity)){
+    SAresults$Sensitivity <- .drop_placeholder_rows(SAresults$Sensitivity, placeholders)
+  }
   # prep data first
   Sdf <- SAresults$Sensitivity
   if(is.null(Sdf)){

@@ -53,6 +53,14 @@
 plot_scatter <- function(coin, dsets, iCodes, ..., by_group = NULL,
                          alpha = 0.5, axes_label = "iCode", dset_label = TRUE,
                          point_label = NULL, check_overlap = TRUE, nudge_y = 5, log_scale = c(FALSE, FALSE)){
+  UseMethod("plot_scatter")
+}
+
+#' @rdname plot_scatter
+#' @export
+plot_scatter.coin <- function(coin, dsets, iCodes, ..., by_group = NULL,
+                              alpha = 0.5, axes_label = "iCode", dset_label = TRUE,
+                              point_label = NULL, check_overlap = TRUE, nudge_y = 5, log_scale = c(FALSE, FALSE)){
 
   # PREP --------------------------------------------------------------------
 
@@ -175,4 +183,25 @@ plot_scatter <- function(coin, dsets, iCodes, ..., by_group = NULL,
   plt  +
     ggplot2::theme(text=ggplot2::element_text(family="sans"))
 
+}
+
+#' @rdname plot_scatter
+#' @export
+plot_scatter.unbalanced_coin <- function(coin, dsets, iCodes, ..., by_group = NULL,
+                                         alpha = 0.5, axes_label = "iCode", dset_label = TRUE,
+                                         point_label = NULL, check_overlap = TRUE, nudge_y = 5, log_scale = c(FALSE, FALSE)){
+  delegate <- .prepare_placeholder_delegate(coin, dsets = dsets)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_scatter.coin(base_coin, dsets = dsets, iCodes = iCodes, ...,
+                           by_group = by_group, alpha = alpha, axes_label = axes_label,
+                           dset_label = dset_label, point_label = point_label,
+                           check_overlap = check_overlap, nudge_y = nudge_y, log_scale = log_scale)
+
+  .strip_placeholder_plot(res, placeholders)
 }

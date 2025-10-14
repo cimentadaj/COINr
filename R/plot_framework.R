@@ -41,6 +41,14 @@
 plot_framework <- function(coin, type = "sunburst", colour_level = NULL,
                            text_colour = NULL, text_size = NULL, transparency = TRUE,
                            text_label = "iCode"){
+  UseMethod("plot_framework")
+}
+
+#' @rdname plot_framework
+#' @export
+plot_framework.coin <- function(coin, type = "sunburst", colour_level = NULL,
+                                text_colour = NULL, text_size = NULL, transparency = TRUE,
+                                text_label = "iCode"){
 
   # CHECKS ------------------------------------------------------------------
 
@@ -157,4 +165,24 @@ plot_framework <- function(coin, type = "sunburst", colour_level = NULL,
     ggplot2::theme(text=ggplot2::element_text(family="sans"))
 
 
+}
+
+#' @rdname plot_framework
+#' @export
+plot_framework.unbalanced_coin <- function(coin, type = "sunburst", colour_level = NULL,
+                                           text_colour = NULL, text_size = NULL, transparency = TRUE,
+                                           text_label = "iCode"){
+  delegate <- .prepare_placeholder_delegate(coin)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_framework.coin(base_coin, type = type, colour_level = colour_level,
+                             text_colour = text_colour, text_size = text_size,
+                             transparency = transparency, text_label = text_label)
+
+  .strip_placeholder_plot(res, placeholders)
 }

@@ -2,9 +2,31 @@
 % Please edit documentation in R/plot_dist.R
 \name{plot_dist}
 \alias{plot_dist}
+\alias{plot_dist.coin}
+\alias{plot_dist.unbalanced_coin}
 \title{Static indicator distribution plots}
 \usage{
 plot_dist(
+  coin,
+  dset,
+  iCodes,
+  ...,
+  type = "Box",
+  normalise = FALSE,
+  global_specs = NULL
+)
+
+\method{plot_dist}{coin}(
+  coin,
+  dset,
+  iCodes,
+  ...,
+  type = "Box",
+  normalise = FALSE,
+  global_specs = NULL
+)
+
+\method{plot_dist}{unbalanced_coin}(
   coin,
   dset,
   iCodes,

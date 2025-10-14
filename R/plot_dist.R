@@ -34,6 +34,13 @@
 #' @export
 plot_dist <- function(coin, dset, iCodes, ..., type = "Box", normalise = FALSE,
                       global_specs = NULL){
+  UseMethod("plot_dist")
+}
+
+#' @rdname plot_dist
+#' @export
+plot_dist.coin <- function(coin, dset, iCodes, ..., type = "Box", normalise = FALSE,
+                           global_specs = NULL){
 
   # GET DATA ----------------------------------------------------------------
 
@@ -120,6 +127,24 @@ plot_dist <- function(coin, dset, iCodes, ..., type = "Box", normalise = FALSE,
 
 }
 
+#' @rdname plot_dist
+#' @export
+plot_dist.unbalanced_coin <- function(coin, dset, iCodes, ..., type = "Box", normalise = FALSE,
+                                      global_specs = NULL){
+  delegate <- .prepare_placeholder_delegate(coin, dsets = dset)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_dist.coin(base_coin, dset = dset, iCodes = iCodes, ...,
+                        type = type, normalise = normalise, global_specs = global_specs)
+
+  .strip_placeholder_plot(res, placeholders)
+}
+
 
 #' Dot plots of single indicator with highlighting
 #'
@@ -168,6 +193,14 @@ plot_dist <- function(coin, dset, iCodes, ..., type = "Box", normalise = FALSE,
 plot_dot <- function(coin, dset, iCode, Level = NULL, ..., usel = NULL, marker_type = "circle",
                      add_stat = NULL, stat_label = NULL, show_ticks = TRUE, plabel = NULL,
                      usel_label = TRUE, vert_adjust = 0.5){
+  UseMethod("plot_dot")
+}
+
+#' @rdname plot_dot
+#' @export
+plot_dot.coin <- function(coin, dset, iCode, Level = NULL, ..., usel = NULL, marker_type = "circle",
+                          add_stat = NULL, stat_label = NULL, show_ticks = TRUE, plabel = NULL,
+                          usel_label = TRUE, vert_adjust = 0.5){
 
   # GET DATA ----------------------------------------------------------------
 
@@ -313,4 +346,25 @@ plot_dot <- function(coin, dset, iCode, Level = NULL, ..., usel = NULL, marker_t
   plt + ggplot2::ylim(c(0.98, 1.02))  +
     ggplot2::theme(text=ggplot2::element_text(family="sans"))
 
+}
+
+#' @rdname plot_dot
+#' @export
+plot_dot.unbalanced_coin <- function(coin, dset, iCode, Level = NULL, ..., usel = NULL, marker_type = "circle",
+                                     add_stat = NULL, stat_label = NULL, show_ticks = TRUE, plabel = NULL,
+                                     usel_label = TRUE, vert_adjust = 0.5){
+  delegate <- .prepare_placeholder_delegate(coin, dsets = dset)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_dot.coin(base_coin, dset = dset, iCode = iCode, Level = Level, ...,
+                       usel = usel, marker_type = marker_type, add_stat = add_stat,
+                       stat_label = stat_label, show_ticks = show_ticks, plabel = plabel,
+                       usel_label = usel_label, vert_adjust = vert_adjust)
+
+  .strip_placeholder_plot(res, placeholders)
 }

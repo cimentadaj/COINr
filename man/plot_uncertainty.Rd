@@ -2,9 +2,18 @@
 % Please edit documentation in R/sensitivity.R
 \name{plot_uncertainty}
 \alias{plot_uncertainty}
+\alias{plot_uncertainty.list}
 \title{Plot ranks from an uncertainty/sensitivity analysis}
 \usage{
 plot_uncertainty(
+  SAresults,
+  plot_units = NULL,
+  order_by = "nominal",
+  dot_colour = NULL,
+  line_colour = NULL
+)
+
+\method{plot_uncertainty}{list}(
   SAresults,
   plot_units = NULL,
   order_by = "nominal",
