@@ -29,7 +29,7 @@ print(coin$Meta$Unbalanced$BalancedMeta)
 
 cat("\nSCENARIO 1 - RESULTS SUMMARY\n")
 print(get_results(coin, dset = "Aggregated", tab_type = "Aggs"))
-print(get_corr(coin, Levels = c(1, 3), dset = "Aggregated", make_long = FALSE))
+print(get_corr(coin, Levels = c(1, 2), dset = "Aggregated", make_long = FALSE))
 print(get_cronbach(coin, dset = "Aggregated", iCodes = c("IndA1", "IndA2"), Level = 1))
 print(get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 3))
 print(get_denom_corr(coin, dset = "Denominated", cor_thresh = 0.5))
@@ -55,3 +55,5 @@ print(get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3))
 
 res_removed <- remove_elements(coin, Level = 1, dset = "Aggregated", iCode = "IndB", quietly = TRUE)
 print(res_removed$Scores)
+
+print(plot_corr(coin, dset = "Aggregated", Levels = c(1, 3), showvals = TRUE, pval = 1))

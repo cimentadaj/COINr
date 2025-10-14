@@ -67,10 +67,16 @@
 #' @return A plot object generated with ggplot2, which can be edited further with ggplot2 commands.
 #'
 #' @export
-plot_corr <- function(coin, dset, iCodes = NULL, Levels = 1, ..., cortype = "pearson",
-                     withparent = FALSE, grouplev = NULL, box_level = NULL, showvals = TRUE, flagcolours = FALSE,
-                     flagthresh = NULL, pval = 0.05, insig_colour = "#F0F0F0",
-                     text_colour = NULL, discrete_colours = NULL, box_colour = NULL, order_as = NULL, use_directions = FALSE){
+plot_corr <- function(coin, ...){
+  UseMethod("plot_corr")
+}
+
+#' @rdname plot_corr
+#' @export
+plot_corr.coin <- function(coin, dset, iCodes = NULL, Levels = 1, ..., cortype = "pearson",
+                           withparent = FALSE, grouplev = NULL, box_level = NULL, showvals = TRUE, flagcolours = FALSE,
+                           flagthresh = NULL, pval = 0.05, insig_colour = "#F0F0F0",
+                           text_colour = NULL, discrete_colours = NULL, box_colour = NULL, order_as = NULL, use_directions = FALSE){
 
 
   # NOTE SET grouplev default to level + 1
@@ -329,4 +335,70 @@ plot_corr <- function(coin, dset, iCodes = NULL, Levels = 1, ..., cortype = "pea
   plt  +
     ggplot2::theme(text=ggplot2::element_text(family="sans"))
 
+}
+
+#' @rdname plot_corr
+#' @export
+plot_corr.unbalanced_coin <- function(coin, dset, iCodes = NULL, Levels = 1, ..., cortype = "pearson",
+                                      withparent = FALSE, grouplev = NULL, box_level = NULL, showvals = TRUE, flagcolours = FALSE,
+                                      flagthresh = NULL, pval = 0.05, insig_colour = "#F0F0F0",
+                                      text_colour = NULL, discrete_colours = NULL, box_colour = NULL, order_as = NULL, use_directions = FALSE){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+
+  if(length(placeholders) > 0){
+    placeholders <- placeholders[!is.na(placeholders)]
+    if(length(placeholders) > 0){
+      if(!is.null(base_coin$Meta$Ind)){
+        structural <- base_coin$Meta$Ind$Type %in% c("Indicator", "Aggregate")
+        keep_rows <- structural & !(base_coin$Meta$Ind$iCode %in% placeholders)
+        base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+      }
+      lineage_source <- base_coin$Meta$Lineage
+      if(!is.null(coin$Meta$Lineage_balanced)){
+        lineage_source <- coin$Meta$Lineage_balanced
+      }
+      base_coin$Meta$Lineage <- .sanitize_lineage(lineage_source, placeholders)
+      if(!is.null(base_coin$Data)){
+        for(dname in names(base_coin$Data)){
+          df <- base_coin$Data[[dname]]
+          if(is.data.frame(df)){
+            drop_cols <- intersect(names(df), placeholders)
+            if(length(drop_cols) > 0){
+              base_coin$Data[[dname]][drop_cols] <- NULL
+            }
+          }
+        }
+      }
+    }
+  }
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
+
+  res <- plot_corr.coin(base_coin, dset = dset, iCodes = iCodes, Levels = Levels, ...,
+                        cortype = cortype, withparent = withparent, grouplev = grouplev,
+                        box_level = box_level, showvals = showvals, flagcolours = flagcolours,
+                        flagthresh = flagthresh, pval = pval, insig_colour = insig_colour,
+                        text_colour = text_colour, discrete_colours = discrete_colours,
+                        box_colour = box_colour, order_as = order_as, use_directions = use_directions)
+
+  if(length(placeholders) > 0 && inherits(res, "ggplot")){
+    res$data <- .strip_placeholder_corr(res$data, placeholders)
+    if(length(res$layers) > 0){
+      for(idx in seq_along(res$layers)){
+        layer_data <- res$layers[[idx]]$data
+        if(!is.null(layer_data)){
+          res$layers[[idx]]$data <- .strip_placeholder_corr(layer_data, placeholders)
+        }
+      }
+    }
+  }
+
+  res
 }

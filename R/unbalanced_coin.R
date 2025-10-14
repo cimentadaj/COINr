@@ -231,7 +231,20 @@
   if(is.null(lineage) || length(placeholders) == 0){
     return(lineage)
   }
-  lineage <- lineage[!is.na(lineage[[1]]) & !(lineage[[1]] %in% placeholders), , drop = FALSE]
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0){
+    return(lineage)
+  }
+  keep_rows <- rep(FALSE, nrow(lineage))
+  for(j in seq_len(ncol(lineage))){
+    col <- lineage[[j]]
+    keep_rows <- keep_rows | (!is.na(col) & !(col %in% placeholders))
+  }
+  if(any(keep_rows)){
+    lineage <- lineage[keep_rows, , drop = FALSE]
+  } else {
+    return(lineage[NULL, , drop = FALSE])
+  }
   lineage[] <- lapply(lineage, function(col){
     col[col %in% placeholders] <- NA_character_
     col
@@ -241,6 +254,14 @@
       na_idx <- is.na(lineage[[j]])
       lineage[[j]][na_idx] <- lineage[[j-1]][na_idx]
     }
+  }
+  if(ncol(lineage) > 1){
+    na_idx <- is.na(lineage[[1]])
+    if(any(na_idx)){
+      lineage[[1]][na_idx] <- lineage[[2]][na_idx]
+    }
+  }
+  if(ncol(lineage) > 1){
     keep <- rep(TRUE, ncol(lineage))
     for(j in 2:ncol(lineage)){
       same_as_prev <- identical(lineage[[j]], lineage[[j-1]])
