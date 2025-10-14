@@ -2,9 +2,35 @@
 % Please edit documentation in R/plot_corr.R
 \name{plot_corr}
 \alias{plot_corr}
+\alias{plot_corr.coin}
+\alias{plot_corr.unbalanced_coin}
 \title{Static heatmaps of correlation matrices}
 \usage{
-plot_corr(
+plot_corr(coin, ...)
+
+\method{plot_corr}{coin}(
+  coin,
+  dset,
+  iCodes = NULL,
+  Levels = 1,
+  ...,
+  cortype = "pearson",
+  withparent = FALSE,
+  grouplev = NULL,
+  box_level = NULL,
+  showvals = TRUE,
+  flagcolours = FALSE,
+  flagthresh = NULL,
+  pval = 0.05,
+  insig_colour = "#F0F0F0",
+  text_colour = NULL,
+  discrete_colours = NULL,
+  box_colour = NULL,
+  order_as = NULL,
+  use_directions = FALSE
+)
+
+\method{plot_corr}{unbalanced_coin}(
   coin,
   dset,
   iCodes = NULL,
@@ -29,14 +55,14 @@ plot_corr(
 \arguments{
 \item{coin}{The coin object}
 
+\item{...}{Optional further arguments to pass to \code{\link[=get_data]{get_data()}}.}
+
 \item{dset}{The target data set.}
 
 \item{iCodes}{An optional list of character vectors where the first entry specifies the indicator/aggregate
 codes to correlate against the second entry (also a specification of indicator/aggregate codes)}
 
 \item{Levels}{The aggregation levels to take the two groups of indicators from. See \code{\link[=get_data]{get_data()}} for details.}
-
-\item{...}{Optional further arguments to pass to \code{\link[=get_data]{get_data()}}.}
 
 \item{cortype}{The type of correlation to calculate, either \code{"pearson"}, \code{"spearman"}, or \code{"kendall"} (see \code{\link[stats:cor]{stats::cor()}}).}
 

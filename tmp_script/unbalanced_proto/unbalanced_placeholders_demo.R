@@ -56,4 +56,31 @@ print(get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3))
 res_removed <- remove_elements(coin, Level = 1, dset = "Aggregated", iCode = "IndB", quietly = TRUE)
 print(res_removed$Scores)
 
-print(plot_corr(coin, dset = "Aggregated", Levels = c(1, 3), showvals = TRUE, pval = 1))
+print(plot_corr(coin, dset = "Aggregated", Levels = c(1, 2), showvals = TRUE, pval = 1))
+print(plot_bar(coin, dset = "Aggregated", iCode = "AggSolo", axes_label = "iName", stack_children = FALSE))
+print(plot_dist(coin, dset = "Aggregated", iCodes = c("AggSolo", "SubA"), type = "Violindot"))
+print(plot_dot(coin, dset = "Aggregated", iCode = "AggSolo", Level = 2, usel = c("U1", "U3")))
+print(plot_framework(coin, colour_level = 2, transparency = TRUE, text_label = "iName"))
+print(plot_scatter(coin, dsets = c("Aggregated", "Aggregated"), iCodes = c("AggSolo", "Index"), axes_label = "iName"))
+
+sa_specs <- list(
+  Winmax = list(
+    Address = "$Log$Treat$global_specs$f1_para$winmax",
+    Distribution = 1:3,
+    Type = "discrete"
+  ),
+  Normalisation = list(
+    Address = "$Log$Normalise$global_specs",
+    Distribution = list(
+      list(f_n = "n_minmax", f_n_para = list(c(1, 100))),
+      list(f_n = "n_minmax", f_n_para = list(c(1, 100)))
+    ),
+    Type = "discrete"
+  )
+)
+
+SA_res <- get_sensitivity(coin, SA_specs = sa_specs, N = 10, SA_type = "SA",
+                          dset = "Aggregated", iCode = "Index", quietly = TRUE, Nboot = NULL)
+
+print(plot_uncertainty(SA_res, order_by = "nominal"))
+print(plot_sensitivity(SA_res, ptype = "bar"))

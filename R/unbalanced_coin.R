@@ -82,18 +82,7 @@
   }
 
   if(is.data.frame(res)){
-    var_cols <- intersect(names(res), c("Var1", "Var2"))
-    if(length(var_cols) == 0 && ncol(res) >= 2){
-      var_cols <- names(res)[1:min(2, ncol(res))]
-    }
-    if(length(var_cols) > 0){
-      drop_idx <- rep(FALSE, nrow(res))
-      for(col in var_cols){
-        drop_idx <- drop_idx | (res[[col]] %in% placeholders)
-      }
-      res <- res[!drop_idx, , drop = FALSE]
-    }
-    return(res)
+    return(.drop_placeholder_rows(res, placeholders))
   }
 
   if(is.matrix(res)){
@@ -128,6 +117,158 @@
   }
 
   res
+}
+
+.drop_placeholder_columns <- function(df, placeholders){
+  if(!is.data.frame(df) || length(placeholders) == 0){
+    return(df)
+  }
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0){
+    return(df)
+  }
+  keep <- names(df)[!(names(df) %in% placeholders)]
+  if(length(keep) == 0){
+    df[0]
+  } else {
+    df[keep]
+  }
+}
+
+.drop_placeholder_rows <- function(df, placeholders){
+  if(!is.data.frame(df) || nrow(df) == 0 || length(placeholders) == 0){
+    return(df)
+  }
+  placeholders <- placeholders[!is.na(placeholders)]
+  if(length(placeholders) == 0){
+    return(df)
+  }
+  drop_mask <- rep(FALSE, nrow(df))
+  for(col in names(df)){
+    coldata <- df[[col]]
+    if(is.factor(coldata)){
+      drop_mask <- drop_mask | (as.character(coldata) %in% placeholders)
+    } else if(is.character(coldata)){
+      drop_mask <- drop_mask | (coldata %in% placeholders)
+    }
+  }
+  if(!any(drop_mask)){
+    return(df)
+  }
+  df <- df[!drop_mask, , drop = FALSE]
+  df[] <- lapply(df, function(col){
+    if(is.factor(col)){
+      droplevels(col)
+    } else {
+      col
+    }
+  })
+  df
+}
+
+.strip_placeholder_plot <- function(plt, placeholders, code_cols = NULL){
+  if(!inherits(plt, "ggplot") || length(placeholders) == 0){
+    return(plt)
+  }
+  drop_rows <- function(df){
+    if(is.null(df) || !is.data.frame(df) || nrow(df) == 0){
+      return(df)
+    }
+    columns_to_check <- names(df)
+    if(is.null(code_cols)){
+      columns_to_check <- columns_to_check[grepl("Code$|^Var|^Component$|^Variable$", columns_to_check)]
+      if(length(columns_to_check) == 0){
+        columns_to_check <- names(df)[vapply(df, function(col){
+          is.factor(col) || is.character(col)
+        }, logical(1))]
+      }
+    } else {
+      columns_to_check <- intersect(columns_to_check, code_cols)
+    }
+    if(length(columns_to_check) == 0){
+      return(df)
+    }
+    drop_mask <- rep(FALSE, nrow(df))
+    for(col_name in columns_to_check){
+      coldata <- df[[col_name]]
+      if(is.factor(coldata)){
+        drop_mask <- drop_mask | (as.character(coldata) %in% placeholders)
+      } else if(is.character(coldata)){
+        drop_mask <- drop_mask | (coldata %in% placeholders)
+      }
+    }
+    if(!any(drop_mask)){
+      return(df)
+    }
+    df <- df[!drop_mask, , drop = FALSE]
+    df[] <- lapply(df, function(col){
+      if(is.factor(col)){
+        droplevels(col)
+      } else {
+        col
+      }
+    })
+    df
+  }
+  plt$data <- drop_rows(plt$data)
+  if(length(plt$layers) > 0){
+    for(idx in seq_along(plt$layers)){
+      layer_data <- plt$layers[[idx]]$data
+      if(!is.null(layer_data)){
+        plt$layers[[idx]]$data <- drop_rows(layer_data)
+      }
+    }
+  }
+  if(!is.null(plt$labels)){
+    labels <- plt$labels
+    for(nm in names(labels)){
+      val <- labels[[nm]]
+      if(is.character(val)){
+        labels[[nm]] <- setdiff(val, placeholders)
+      }
+    }
+    plt$labels <- labels
+  }
+  plt
+}
+
+.prepare_placeholder_delegate <- function(coin, keep_types = c("Indicator", "Aggregate"),
+                                          dsets = NULL, drop_lineage = TRUE){
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  placeholders <- placeholders[!is.na(placeholders)]
+  base_classes <- setdiff(class(coin), "unbalanced_coin")
+  if(length(base_classes) == 0){
+    base_classes <- "coin"
+  }
+  base_coin <- structure(coin, class = base_classes)
+
+  if(length(placeholders) > 0){
+    if(!is.null(base_coin$Meta$Ind) && !is.null(keep_types)){
+      keep_rows <- (base_coin$Meta$Ind$Type %in% keep_types) &
+        !(base_coin$Meta$Ind$iCode %in% placeholders)
+      base_coin$Meta$Ind <- base_coin$Meta$Ind[keep_rows, , drop = FALSE]
+    }
+    if(drop_lineage){
+      lineage_source <- base_coin$Meta$Lineage
+      if(!is.null(coin$Meta$Lineage_balanced)){
+        lineage_source <- coin$Meta$Lineage_balanced
+      }
+      base_coin$Meta$Lineage <- .sanitize_lineage(lineage_source, placeholders)
+    }
+    if(!is.null(base_coin$Data)){
+      target_dsets <- names(base_coin$Data)
+      if(!is.null(dsets)){
+        target_dsets <- intersect(target_dsets, unique(c(dsets)))
+      }
+      for(dname in target_dsets){
+        df <- base_coin$Data[[dname]]
+        if(is.data.frame(df)){
+          base_coin$Data[[dname]] <- .drop_placeholder_columns(df, placeholders)
+        }
+      }
+    }
+  }
+  list(coin = base_coin, placeholders = placeholders)
 }
 
 .prepare_unbalanced_dataset <- function(coin, dset_name){
@@ -768,12 +909,13 @@ get_stats.unbalanced_coin <- function(x, dset, t_skew = 2, t_kurt = 3.5, t_avail
 get_sensitivity.unbalanced_coin <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode,
                                             Nboot = NULL, quietly = FALSE, check_addresses = TRUE,
                                             diagnostic_mode = FALSE){
-  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
-  base_classes <- setdiff(class(coin), "unbalanced_coin")
-  if(length(base_classes) == 0){
-    base_classes <- "coin"
-  }
-  base_coin <- structure(coin, class = base_classes)
+  delegate <- .prepare_placeholder_delegate(coin)
+  base_coin <- delegate$coin
+  placeholders <- delegate$placeholders
+
+  old_keep <- getOption("COINr.keep_placeholders")
+  on.exit(options(COINr.keep_placeholders = old_keep), add = TRUE)
+  options(COINr.keep_placeholders = TRUE)
 
   res <- get_sensitivity.coin(base_coin, SA_specs = SA_specs, N = N, SA_type = SA_type,
                               dset = dset, iCode = iCode, Nboot = Nboot, quietly = quietly,
@@ -784,6 +926,12 @@ get_sensitivity.unbalanced_coin <- function(coin, SA_specs, N, SA_type = "UA", d
     res$Ranks <- .strip_placeholder_results(res$Ranks, placeholders)
     res$RankStats <- .strip_placeholder_results(res$RankStats, placeholders)
     res$Nominal <- .strip_placeholder_results(res$Nominal, placeholders)
+    if(!is.null(res$Sensitivity)){
+      res$Sensitivity <- .strip_placeholder_results(res$Sensitivity, placeholders)
+    }
+    if(!is.null(res$SA_specs) && is.list(res$SA_specs)){
+      res$SA_specs <- .strip_placeholder_results(res$SA_specs, placeholders)
+    }
   }
 
   if(diagnostic_mode && !is.null(res$coins)){
