@@ -454,6 +454,23 @@
         ph_row$Direction <- ifelse(is.na(agg_row$Direction), 1, agg_row$Direction)
         ph_row$Level <- NA
         ph_row$IsPlaceholder <- TRUE
+        if("iName" %in% names(ph_row)) {
+          base_label <- agg_row$iName
+          if(length(base_label) != 1 || is.na(base_label)){
+            base_label <- agg_code
+          }
+          ph_row$iName <- paste0(base_label, " placeholder input")
+        }
+        if("Unit" %in% names(ph_row) && is.na(ph_row$Unit)){
+          ph_row$Unit <- agg_row$Unit
+        }
+        if("Target" %in% names(ph_row)) {
+          source_target <- agg_row$Target
+          if(length(source_target) != 1 || is.na(source_target)){
+            source_target <- 0
+          }
+          ph_row$Target <- source_target
+        }
         indicator_placeholder_rows[[length(indicator_placeholder_rows) + 1]] <- ph_row
         placeholder_codes <- c(placeholder_codes, ph_code)
         placeholder_map[[agg_code]] <- unique(c(placeholder_map[[agg_code]], ph_code))
@@ -502,10 +519,36 @@
       ph_row$iCode <- ph_code
       ph_row$Parent <- prev_parent
       ph_row$Type <- "Aggregate"
-      ph_row$Weight <- ifelse(k == 1, row$Weight, 1)
+      child_weight <- row$Weight
+      if(length(child_weight) != 1 || is.na(child_weight)){
+        child_weight <- 1
+      }
+      ph_row$Weight <- ifelse(k == 1, child_weight, 1)
       ph_row$Direction <- 1
       ph_row$Level <- NA
       ph_row$IsPlaceholder <- TRUE
+      if("iName" %in% names(ph_row)) {
+        child_label <- row$iName
+        if(length(child_label) != 1 || is.na(child_label)){
+          child_label <- child
+        }
+        parent_label <- meta$iName[match(prev_parent, meta$iCode)]
+        if(length(parent_label) != 1 || is.na(parent_label)){
+          parent_label <- prev_parent
+        }
+        suffix <- if(gap > 1) paste0(" bridge ", k) else " bridge"
+        ph_row$iName <- paste0(child_label, " placeholder", suffix, " to ", parent_label)
+      }
+      if("Unit" %in% names(ph_row) && is.na(ph_row$Unit)){
+        ph_row$Unit <- row$Unit
+      }
+      if("Target" %in% names(ph_row)) {
+        source_target <- row$Target
+        if(length(source_target) != 1 || is.na(source_target)){
+          source_target <- 0
+        }
+        ph_row$Target <- source_target
+      }
       placeholder_rows[[length(placeholder_rows) + 1]] <- ph_row
       existing_codes <- c(existing_codes, ph_code)
       prev_parent <- ph_code
