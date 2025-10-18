@@ -122,6 +122,42 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
 
   addresses <- sapply(SA_specs, `[[`, "Address")
 
+  # determine earliest log stage affected by the specs so regeneration can restart later in the pipeline
+  log_entries <- coin$Log$Log
+  log_sequence <- character()
+  if(!is.null(log_entries)){
+    log_sequence <- names(log_entries)
+    log_sequence <- setdiff(log_sequence, "can_regen")
+  }
+
+  address_stage_index <- function(address){
+    if(length(log_sequence) == 0){
+      return(Inf)
+    }
+    match_expr <- regexpr("^\\$Log\\$([^\\$]+)", address, perl = TRUE)
+    if(match_expr[1] == -1){
+      return(Inf)
+    }
+    stage_name <- sub("^\\$Log\\$([^\\$]+).*", "\\1", address, perl = TRUE)
+    idx <- match(stage_name, log_sequence, nomatch = NA_integer_)
+    if(is.na(idx)){
+      Inf
+    } else {
+      idx
+    }
+  }
+
+  stage_indices <- vapply(addresses, address_stage_index, numeric(1))
+  regen_from_idx <- suppressWarnings(min(stage_indices))
+  if(!is.finite(regen_from_idx) || regen_from_idx <= 1){
+    regen_from <- NULL
+  } else {
+    regen_from <- log_sequence[regen_from_idx]
+    if(!quietly){
+      message("Optimising regeneration: restarting from ", regen_from)
+    }
+  }
+
   if(check_addresses){
     invisible(lapply(addresses, check_address, coin))
   }
@@ -137,6 +173,9 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
     coin_list <- vector(mode = "list", length = NT)
   }
 
+  coin_cache <- new.env(parent = emptyenv())
+  cache_hits <- 0L
+
   for(irep in seq_len(NT)){
 
     l_para_rep <- lapply(XX_p, `[[`, irep)
@@ -145,21 +184,55 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
       message(paste0("Rep ", irep, " of ", NT, " ... ", round(irep * 100 / NT, 1), "% complete"))
     }
 
-    coin_rep <- regen_edit(l_para_rep, addresses, coin)
+    cache_key <- rawToChar(serialize(l_para_rep, connection = NULL, ascii = TRUE))
+    coin_success <- FALSE
+    v_out <- v_fail
+    coin_rep <- NULL
+
+    if(exists(cache_key, envir = coin_cache, inherits = FALSE)){
+      cache_entry <- get(cache_key, envir = coin_cache, inherits = FALSE)
+      cache_hits <- cache_hits + 1L
+      coin_success <- isTRUE(cache_entry$ok)
+      v_out <- cache_entry$v_out
+      if(diagnostic_mode){
+        coin_rep <- cache_entry$coin
+      }
+    } else {
+      coin_candidate <- regen_edit(l_para_rep, addresses, coin, regen_from = regen_from)
+      coin_success <- is.coin(coin_candidate)
+      if(coin_success){
+        v_out <- get_data(coin_candidate, dset = dset, iCodes = iCode)
+        stopifnot(setequal(colnames(v_out), c("uCode", iCode)))
+      } else {
+        v_out <- v_fail
+      }
+      stored_coin <- if(diagnostic_mode) coin_candidate else NULL
+      cache_entry <- list(
+        ok = coin_success,
+        v_out = v_out,
+        coin = stored_coin
+      )
+      assign(cache_key, cache_entry, envir = coin_cache)
+      coin_rep <- stored_coin
+      if(!diagnostic_mode){
+        coin_candidate <- NULL
+      }
+    }
 
     if(diagnostic_mode){
       coin_list[[irep]] <- coin_rep
     }
 
-    if(is.coin(coin_rep)){
-      v_out <- get_data(coin_rep, dset = dset, iCodes = iCode)
-      stopifnot(setequal(colnames(v_out), c("uCode", iCode)))
-    } else {
+    if(!coin_success){
       v_out <- v_fail
     }
 
     SA_scores <- merge(SA_scores, v_out, by = "uCode", all = TRUE)
     names(SA_scores)[names(SA_scores) == iCode] <- paste0("r_", irep)
+  }
+
+  if(!quietly && cache_hits > 0L){
+    message("Reused ", cache_hits, " cached regenerations.")
   }
 
   SA_ranks <- rank_df(SA_scores)
@@ -240,7 +313,7 @@ get_sensitivity.coin <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode,
 #
 # @examples
 # #
-regen_edit <- function(l_para, addresses, coin){
+regen_edit <- function(l_para, addresses, coin, regen_from = NULL){
 
   d <- length(l_para)
   p_names <- names(l_para)
@@ -259,7 +332,7 @@ regen_edit <- function(l_para, addresses, coin){
 
   # regenerate the results
   tryCatch(
-    expr = Regen(coin_i, quietly = TRUE),
+    expr = Regen(coin_i, from = regen_from, quietly = TRUE),
     error = function(e){
       message("Regen failed. Probably a conflict between methods.")
       print(e)
