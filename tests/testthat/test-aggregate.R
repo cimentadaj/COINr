@@ -106,6 +106,87 @@ test_that("agg_coin", {
 
 })
 
+test_that("Aggregate supports per-parent function overrides", {
+
+  base_coin <- build_example_coin(up_to = "Normalise", quietly = TRUE)
+
+  custom_f_ag <- list(
+    Level2 = list(default = "a_amean", Physical = "a_genmean"),
+    Level3 = "a_amean"
+  )
+  custom_f_para <- list(
+    Level2 = list(Physical = list(p = 2))
+  )
+
+  coin_default <- Aggregate(base_coin, dset = "Normalised")
+  coin_custom <- Aggregate(base_coin, dset = "Normalised", f_ag = custom_f_ag,
+                           f_ag_para = custom_f_para)
+
+  agg_default <- get_dset(coin_default, "Aggregated")
+  agg_custom <- get_dset(coin_custom, "Aggregated")
+
+  meta <- base_coin[["Meta"]][["Ind"]]
+  idx_level1 <- which(meta[["Parent"]] == "Physical" & meta[["Level"]] == 1)
+  level1_codes <- meta[["iCode"]][idx_level1]
+  weights <- meta[["Weight"]][idx_level1]
+  normalised <- get_dset(base_coin, "Normalised")[level1_codes]
+
+  manual_physical <- Aggregate(normalised[level1_codes],
+                               f_ag = "a_genmean",
+                               f_ag_para = list(w = weights, p = 2))
+
+  expect_equal(agg_custom$Physical, manual_physical)
+  expect_false(isTRUE(all.equal(agg_custom$Physical, agg_default$Physical)))
+  expect_equal(agg_custom$ConEcFin, agg_default$ConEcFin)
+  expect_setequal(names(agg_custom), names(agg_default))
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Normalise(unbal, dset = "Raw", write_to = "Normalised")
+
+  unbal_default <- Aggregate(unbal, dset = "Normalised")
+
+  custom_unbal_f_ag <- list(
+    Level2 = list(default = "a_amean", SubA = "a_genmean"),
+    Level3 = "a_amean"
+  )
+  custom_unbal_para <- list(
+    Level2 = list(SubA = list(p = 2))
+  )
+
+  unbal_custom <- Aggregate(unbal, dset = "Normalised",
+                            f_ag = custom_unbal_f_ag,
+                            f_ag_para = custom_unbal_para)
+
+  agg_unbal <- get_dset(unbal_custom, "Aggregated")
+  agg_unbal_default <- get_dset(unbal_default, "Aggregated")
+  meta_unbal <- unbal[["Meta"]][["Ind"]]
+  idx_level1_unbal <- which(meta_unbal[["Parent"]] == "SubA" & meta_unbal[["Level"]] == 1)
+  level1_codes_unbal <- meta_unbal[["iCode"]][idx_level1_unbal]
+  weights_unbal <- meta_unbal[["Weight"]][idx_level1_unbal]
+  normalised_unbal <- get_dset(unbal_custom, "Normalised")[level1_codes_unbal]
+
+  manual_unbal <- Aggregate(normalised_unbal,
+                            f_ag = "a_genmean",
+                            f_ag_para = list(w = weights_unbal, p = 2))
+
+  expect_equal(agg_unbal$SubA, manual_unbal)
+  expect_false(isTRUE(all.equal(agg_unbal$SubA, agg_unbal_default$SubA)))
+
+  n_zscore_spec <- list(
+    Level2 = list(default = "a_amean", Physical = "n_zscore"),
+    Level3 = "a_amean",
+    Level4 = "a_amean"
+  )
+  expect_error(
+    Aggregate(base_coin, dset = "Normalised", f_ag = n_zscore_spec),
+    "same length as nrow\\(x\\)",
+    class = "simpleError"
+  )
+})
+
 test_that("agg_purse", {
 
   # purse

@@ -16,12 +16,11 @@ cat("\nSCENARIO 1 - ORIGINAL META\n")
 print(unbal_scen1_iMeta)
 
 coin <- new_unbalanced_coin(unbal_scen1_iData, unbal_scen1_iMeta, quietly = TRUE)
-
 coin <- Impute(coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
 coin <- Denominate(coin, dset = "Imputed", write_to = "Denominated")
 coin <- Treat(coin, dset = "Denominated", write_to = "Treated")
 coin <- Normalise(coin, dset = "Treated", write_to = "Normalised")
-coin <- Aggregate(coin, dset = "Normalised")
+coin <- Aggregate(coin, dset = "Raw")
 coin <- Screen(coin, dset = "Normalised", unit_screen = "byNA", dat_thresh = 0.9)
 
 cat("\nSCENARIO 1 - BALANCED META WITH PLACEHOLDERS\n")
@@ -29,7 +28,30 @@ print(coin$Meta$Unbalanced$BalancedMeta)
 
 cat("\nSCENARIO 1 - RESULTS SUMMARY\n")
 print(get_results(coin, dset = "Aggregated", tab_type = "Aggs"))
-print(get_corr(coin, Levels = c(1, 2), dset = "Aggregated", make_long = FALSE))
+
+cat("\nAggregate with different functions per function/parent\n")
+mixed_f_ag <- list(
+  Level2 = list(default = 'a_amean', SubA = "a_genmean"),
+  Level3 = list(default = 'a_genmean')
+)
+
+mixed_f_ag_para <- list(
+  Level2 = list(SubA = list(p = 2)),
+  Level3 = list(default = list(p = 3))
+)
+
+mixed_raw <- Aggregate(
+  coin,
+  dset = "Raw",
+  f_ag = mixed_f_ag,
+  f_ag_para = mixed_f_ag_para
+)
+
+print(get_results(mixed_raw, dset = "Aggregated", tab_type = "Aggs"))
+
+coin <- mixed_raw
+
+print(get_corr(coin, Levels = c(1, 2), dset = "Aggregated", make_long = FALSE, pval = 1))
 print(get_cronbach(coin, dset = "Aggregated", iCodes = c("IndA1", "IndA2"), Level = 1))
 print(get_corr_flags(coin, dset = "Normalised", cor_thresh = 0.75, grouplev = 3))
 print(get_denom_corr(coin, dset = "Denominated", cor_thresh = 0.5))
@@ -56,11 +78,17 @@ print(get_noisy_weights(coin, noise_specs = noise_specs, Nrep = 3))
 res_removed <- remove_elements(coin, Level = 1, dset = "Aggregated", iCode = "IndB", quietly = TRUE)
 print(res_removed$Scores)
 
+# Correlations are 1 simply because it's rounding up, but they re are ~ 0.99 as you can see with get_corr
 print(plot_corr(coin, dset = "Aggregated", Levels = c(1, 2), showvals = TRUE, pval = 1))
+
 print(plot_bar(coin, dset = "Aggregated", iCode = "AggSolo", axes_label = "iName", stack_children = FALSE))
+
 print(plot_dist(coin, dset = "Aggregated", iCodes = c("AggSolo", "SubA"), type = "Violindot"))
+
 print(plot_dot(coin, dset = "Aggregated", iCode = "AggSolo", Level = 2, usel = c("U1", "U3")))
+
 print(plot_framework(coin, colour_level = 2, transparency = TRUE, text_label = "iName"))
+
 print(plot_scatter(coin, dsets = c("Aggregated", "Aggregated"), iCodes = c("AggSolo", "Index"), axes_label = "iName"))
 
 sa_specs <- list(

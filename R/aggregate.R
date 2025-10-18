@@ -52,6 +52,323 @@ Aggregate.purse <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, da
   x
 }
 
+.parse_level_identifier <- function(name, nlev){
+  if(is.null(name) || !nzchar(name)){
+    return(NA_integer_)
+  }
+  if(grepl("^\\d+$", name)){
+    lev <- as.integer(name)
+  } else if(grepl("^(Level|level|LEVEL)\\d+$", name)){
+    lev <- as.integer(sub("^(Level|level|LEVEL)", "", name))
+  } else if(grepl("^(L|l)\\d+$", name)){
+    lev <- as.integer(sub("^(L|l)", "", name))
+  } else {
+    return(NA_integer_)
+  }
+  if(is.na(lev) || lev < 2 || lev > nlev){
+    return(NA_integer_)
+  }
+  lev
+}
+
+.initialise_level_spec <- function(levels, default_value){
+  out <- vector("list", length(levels))
+  names(out) <- as.character(levels)
+  for(ii in seq_along(levels)){
+    out[[ii]] <- list(
+      default = default_value,
+      overrides = stats::setNames(vector("list", 0), character(0))
+    )
+  }
+  out
+}
+
+.build_parent_lookup <- function(imeta){
+  nlev <- max(imeta$Level, na.rm = TRUE)
+  parents_by_level <- lapply(2:nlev, function(lev){
+    parents <- unique(imeta$Parent[imeta$Level == (lev - 1)])
+    parents[!is.na(parents)]
+  })
+  names(parents_by_level) <- as.character(2:nlev)
+  parent_lookup <- unlist(
+    lapply(names(parents_by_level), function(level_key){
+      parents <- parents_by_level[[level_key]]
+      if(length(parents) == 0){
+        return(NULL)
+      }
+      stats::setNames(rep(as.integer(level_key), length(parents)), parents)
+    }),
+    use.names = TRUE
+  )
+  list(
+    nlev = nlev,
+    parents_by_level = parents_by_level,
+    parent_lookup = parent_lookup
+  )
+}
+
+.resolve_function_spec <- function(f_ag, nlev, parents_by_level, parent_lookup){
+  level_keys <- as.integer(names(parents_by_level))
+  resolved <- .initialise_level_spec(level_keys, "a_amean")
+
+  if(is.null(f_ag)){
+    return(resolved)
+  }
+
+  assign_default <- function(level, value){
+    if(!is.character(value) || length(value) != 1){
+      stop("Default aggregation functions must be supplied as single character strings.")
+    }
+    resolved[[as.character(level)]]$default <<- value
+  }
+  add_override <- function(level, parent, value){
+    if(!is.character(value) || length(value) != 1){
+      stop("Parent-specific aggregation functions must be supplied as single character strings.")
+    }
+    resolved[[as.character(level)]]$overrides[[parent]] <<- value
+  }
+
+  if(is.character(f_ag)){
+    if(length(f_ag) == 1){
+      for(lev in level_keys){
+        assign_default(lev, f_ag)
+      }
+      return(resolved)
+    }
+    if(length(f_ag) == length(level_keys)){
+      for(ii in seq_along(level_keys)){
+        assign_default(level_keys[ii], f_ag[ii])
+      }
+      return(resolved)
+    }
+    stop("If f_ag is a character vector it must be length 1 or number of aggregation levels minus one.")
+  }
+
+  if(is.list(f_ag) &&
+     length(f_ag) == length(level_keys) &&
+     all(vapply(f_ag, function(x) is.character(x) && length(x) == 1, logical(1))) &&
+     (is.null(names(f_ag)) || all(names(f_ag) == ""))){
+    for(ii in seq_along(level_keys)){
+      assign_default(level_keys[ii], f_ag[[ii]])
+    }
+    return(resolved)
+  }
+
+  if(!is.list(f_ag)){
+    stop("Unrecognised input for f_ag. Supply a character vector, or a list describing level and parent overrides.")
+  }
+
+  entries <- f_ag
+  entry_names <- names(entries)
+  if(is.null(entry_names)){
+    stop("When supplying a list for f_ag with overrides, each element must be named.")
+  }
+
+  default_idx <- which(tolower(entry_names) %in% c("default", "defaults"))
+  if(length(default_idx) > 1){
+    stop("Only one 'default' entry may be supplied in f_ag.")
+  }
+  if(length(default_idx) == 1){
+    default_fun <- entries[[default_idx]]
+    for(lev in level_keys){
+      assign_default(lev, default_fun)
+    }
+    entries[[default_idx]] <- NULL
+    entry_names <- names(entries)
+  }
+
+  for(ii in seq_along(entries)){
+    name_i <- entry_names[ii]
+    value_i <- entries[[ii]]
+    lev <- .parse_level_identifier(name_i, nlev)
+
+    if(!is.na(lev)){
+      if(is.character(value_i)){
+        assign_default(lev, value_i)
+        next
+      }
+      if(!is.list(value_i)){
+        stop("Level-specific entries in f_ag must be character strings or lists.")
+      }
+
+      level_parents <- parents_by_level[[as.character(lev)]]
+      level_names <- names(value_i)
+      working_list <- value_i
+
+      if(length(working_list) > 0 && (is.null(level_names) || level_names[1] == "")){
+        assign_default(lev, working_list[[1]])
+        working_list <- working_list[-1]
+        level_names <- names(working_list)
+      }
+
+      if(length(working_list) > 0){
+        default_idx_lvl <- which(tolower(level_names) %in% c("default", "defaults"))
+        if(length(default_idx_lvl) > 1){
+          stop("Only one 'default' entry may be supplied inside each level entry of f_ag.")
+        }
+        if(length(default_idx_lvl) == 1){
+          assign_default(lev, working_list[[default_idx_lvl]])
+          working_list <- working_list[-default_idx_lvl]
+          level_names <- names(working_list)
+        }
+
+        if(length(working_list) > 0){
+          if(is.null(level_names) || any(level_names == "")){
+            stop("Parent overrides inside each level of f_ag must be named.")
+          }
+          unknown_parents <- setdiff(level_names, level_parents)
+          if(length(unknown_parents) > 0){
+            stop("Unrecognised parent codes in f_ag for level ", lev, ": ", toString(unknown_parents))
+          }
+          for(jj in seq_along(working_list)){
+            add_override(lev, level_names[jj], working_list[[jj]])
+          }
+        }
+      }
+    } else {
+      parent <- name_i
+      lev_for_parent <- parent_lookup[[parent]]
+      if(is.na(lev_for_parent)){
+        stop("Entry '", parent, "' in f_ag does not match any parent code in the hierarchy.")
+      }
+      add_override(lev_for_parent, parent, value_i)
+    }
+  }
+
+  resolved
+}
+
+.resolve_parameter_spec <- function(f_ag_para, nlev, parents_by_level, parent_lookup){
+  level_keys <- as.integer(names(parents_by_level))
+  resolved <- .initialise_level_spec(level_keys, NULL)
+
+  if(is.null(f_ag_para)){
+    return(resolved)
+  }
+  if(!is.list(f_ag_para)){
+    stop("f_ag_para must be NULL or a list.")
+  }
+
+  assign_default <- function(level, value){
+    if(!is.null(value) && !is.list(value)){
+      stop("Default parameter entries must be NULL or lists.")
+    }
+    resolved[[as.character(level)]]$default <<- value
+  }
+  add_override <- function(level, parent, value){
+    if(!is.null(value) && !is.list(value)){
+      stop("Parameter overrides must be NULL or lists.")
+    }
+    resolved[[as.character(level)]]$overrides[[parent]] <<- value
+  }
+
+  if(length(f_ag_para) == 1){
+    entry_name <- names(f_ag_para)
+    is_level_name <- !is.null(entry_name) && !is.na(.parse_level_identifier(entry_name, nlev))
+    is_parent_name <- !is.null(entry_name) && entry_name %in% names(parent_lookup)
+    if(is.null(entry_name) || (!is_level_name && !is_parent_name)){
+      for(lev in level_keys){
+        assign_default(lev, f_ag_para)
+      }
+      return(resolved)
+    }
+  }
+
+  if(length(f_ag_para) == length(level_keys) &&
+     (is.null(names(f_ag_para)) || all(names(f_ag_para) == ""))){
+    for(ii in seq_along(level_keys)){
+      assign_default(level_keys[ii], f_ag_para[[ii]])
+    }
+    return(resolved)
+  }
+
+  entries <- f_ag_para
+  entry_names <- names(entries)
+  if(is.null(entry_names)){
+    stop("When supplying a list for f_ag_para with overrides, each element must be named.")
+  }
+
+  default_idx <- which(tolower(entry_names) %in% c("default", "defaults"))
+  if(length(default_idx) > 1){
+    stop("Only one 'default' entry may be supplied in f_ag_para.")
+  }
+  if(length(default_idx) == 1){
+    for(lev in level_keys){
+      assign_default(lev, entries[[default_idx]])
+    }
+    entries[[default_idx]] <- NULL
+    entry_names <- names(entries)
+  }
+
+  for(ii in seq_along(entries)){
+    name_i <- entry_names[ii]
+    value_i <- entries[[ii]]
+    lev <- .parse_level_identifier(name_i, nlev)
+
+    if(!is.na(lev)){
+      if(is.null(value_i)){
+        assign_default(lev, NULL)
+        next
+      }
+      if(!is.list(value_i)){
+        stop("Level entries in f_ag_para must be NULL or lists.")
+      }
+
+      level_parents <- parents_by_level[[as.character(lev)]]
+      level_names <- names(value_i)
+      working_list <- value_i
+
+      if(length(working_list) > 0 && (is.null(level_names) || level_names[1] == "")){
+        assign_default(lev, working_list[[1]])
+        working_list <- working_list[-1]
+        level_names <- names(working_list)
+      }
+
+      if(length(working_list) > 0){
+        default_idx_lvl <- which(tolower(level_names) %in% c("default", "defaults"))
+        if(length(default_idx_lvl) > 1){
+          stop("Only one 'default' entry may be supplied inside each level entry of f_ag_para.")
+        }
+        if(length(default_idx_lvl) == 1){
+          assign_default(lev, working_list[[default_idx_lvl]])
+          working_list <- working_list[-default_idx_lvl]
+          level_names <- names(working_list)
+        }
+      }
+
+      if(length(working_list) == 0){
+        next
+      }
+
+      if(is.null(level_names) || any(level_names == "")){
+        assign_default(lev, working_list)
+        next
+      }
+
+      unknown_parents <- setdiff(level_names, level_parents)
+      if(length(unknown_parents) == length(level_names)){
+        assign_default(lev, working_list)
+        next
+      }
+      if(length(unknown_parents) > 0){
+        stop("Unrecognised parent codes in f_ag_para for level ", lev, ": ", toString(unknown_parents))
+      }
+      for(jj in seq_along(working_list)){
+        add_override(lev, level_names[jj], working_list[[jj]])
+      }
+    } else {
+      parent <- name_i
+      lev_for_parent <- parent_lookup[[parent]]
+      if(is.na(lev_for_parent)){
+        stop("Entry '", parent, "' in f_ag_para does not match any parent code in the hierarchy.")
+      }
+      add_override(lev_for_parent, parent, value_i)
+    }
+  }
+
+  resolved
+}
+
 
 #' Aggregate indicators in a coin
 #'
@@ -155,29 +472,6 @@ Aggregate.coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat
     by_dfs <- by_df
   }
 
-  # CHECK AND SET f_ag ------------------------------------------------------
-
-  # default and check
-  if(is.null(f_ag)){
-    f_ag <- "a_amean"
-    f_ag_para <- NULL
-  } else {
-    if(!is.character(f_ag)){
-      stop("f_ag must be specified as a character string or vector (function name(s) in inverted commas).")
-    }
-  }
-  stopifnot(length(f_ag) > 0)
-
-  # if same for all levels, repeat
-  if(length(f_ag) == 1){
-    f_ags <- rep(f_ag, nlev - 1)
-  } else {
-    if(length(f_ag) != (nlev - 1)){
-      stop("f_ag must have either length 1 (same function for all levels) or length equal to (number of levels - 1), in your case: ", nlev-1)
-    }
-    f_ags <- f_ag
-  }
-
   # CHECK AND SET w ---------------------------------------------------------
 
   # If weights are supplied we have to see what kind of thing it is. This gets
@@ -277,28 +571,6 @@ Aggregate.coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat
     all(sapply(w1, is.data.frame) | sapply(w1, is.null))
   )
 
-  # CHECK AND SET f_ag_para -------------------------------------------------
-
-  # if f_ag_para is NULL, repeat for all levs
-  if(!is.null(f_ag_para)){
-    if(!is.list(f_ag_para)){
-      stop("f_ag_para must be specified as a list or list of lists")
-    }
-    stopifnot(length(f_ag_para) > 0)
-
-    # if same for all levels, repeat
-    if(length(f_ag_para) == 1){
-      f_ag_paras <- rep(list(f_ag_para), nlev - 1)
-    } else {
-      if(length(f_ag_para) != (nlev - 1)){
-        stop("f_ag_para must have either length 1 (same parameters for all levels) or length equal to number of levels - in your case: ", nlev)
-      }
-      f_ag_paras <- f_ag_para
-    }
-  } else {
-    f_ag_paras <- rep(list(NULL), nlev - 1)
-  }
-
   # Other Prep --------------------------------------------------------------------
 
   if(is.null(dat_thresh)){
@@ -326,54 +598,121 @@ Aggregate.coin <- function(x, dset, f_ag = NULL, w = NULL, f_ag_para = NULL, dat
   # get data (also performing checks)
   indat <- get_dset(coin, dset)
   # get metadata
-  imeta <- coin$Meta$Ind[!is.na(coin$Meta$Ind$Level), ]
+  imeta <- coin$Meta$Ind[
+    !is.na(coin$Meta$Ind$Level) &
+      !is.na(coin$Meta$Ind$iCode) &
+      coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"),
+    ]
 
-  # Function that aggregates from Level = lev to the next level up
-  # calls the function specified by f_ag.
-  aggregate_level <- function(lev){
+  hierarchy <- .build_parent_lookup(imeta)
+  stopifnot(identical(hierarchy$nlev, nlev))
 
-    # filter metadata to level
-    imeta_l <- imeta[imeta$Level == (lev-1), ]
+  function_specs <- .resolve_function_spec(f_ag, hierarchy$nlev, hierarchy$parents_by_level, hierarchy$parent_lookup)
+  parameter_specs <- .resolve_parameter_spec(f_ag_para, hierarchy$nlev, hierarchy$parents_by_level, hierarchy$parent_lookup)
 
-    if(is.null(w1[[lev-1]])){
-      aggs <- tapply(imeta_l$iCode, imeta_l$Parent, function(codes){
-        # call func
-        do.call("Aggregate",
-                list(x = indat_ag[codes],
-                     f_ag = f_ags[lev-1],
-                     f_ag_para = f_ag_paras[[lev-1]],
-                     dat_thresh = dat_threshs[[lev-1]],
-                     by_df = by_dfs[lev-1]))
-      })
-    } else {
-      aggs <- tapply(imeta_l$iCode, imeta_l$Parent, function(codes){
-        # get weights
-        wts <- w1[[lev-1]]$Weight[match(codes, w1[[lev-1]]$iCode)]
-        # call func
-        do.call("Aggregate",
-                list(x = indat_ag[codes],
-                     f_ag = f_ags[lev-1],
-                     f_ag_para = c(list(w = wts), f_ag_paras[[lev-1]]),
-                     dat_thresh = dat_threshs[[lev-1]],
-                     by_df = by_dfs[lev-1]))
-      })
+  resolved_fun_list <- lapply(names(hierarchy$parents_by_level), function(level_key){
+    parents <- hierarchy$parents_by_level[[level_key]]
+    if(length(parents) == 0){
+      return(NULL)
     }
+    spec <- function_specs[[level_key]]
+    data.frame(
+      Level = rep(as.integer(level_key), length(parents)),
+      Parent = parents,
+      Function = vapply(parents, function(parent){
+        override <- spec$overrides[[parent]]
+        if(is.null(override)){
+          spec$default
+        } else {
+          override
+        }
+      }, character(1)),
+      stringsAsFactors = FALSE
+    )
+  })
+  resolved_fun_list <- Filter(Negate(is.null), resolved_fun_list)
+  resolved_fun_df <- if(length(resolved_fun_list) > 0){
+    do.call(rbind, resolved_fun_list)
+  } else {
+    data.frame(Level = integer(0), Parent = character(0), Function = character(0), stringsAsFactors = FALSE)
+  }
 
-    if(is.list(aggs)){
-      # aggs comes out as a list of vectors, have to make to df
-      as.data.frame(do.call(cbind, aggs))
-    } else if (is.numeric(aggs)){
-      # in this case there is only one row, and it comes out as an array which needs to be converted
-      as.data.frame(t(aggs))
+  resolved_param_list <- lapply(names(hierarchy$parents_by_level), function(level_key){
+    parents <- hierarchy$parents_by_level[[level_key]]
+    spec <- parameter_specs[[level_key]]
+    if(length(parents) == 0){
+      return(stats::setNames(vector("list", 0), character(0)))
     }
+    out <- lapply(parents, function(parent){
+      override <- spec$overrides[[parent]]
+      if(is.null(override)){
+        spec$default
+      } else {
+        override
+      }
+    })
+    names(out) <- parents
+    out
+  })
+  names(resolved_param_list) <- names(hierarchy$parents_by_level)
 
+  if(!is.null(coin$Log$Aggregate)){
+    coin$Log$Aggregate$resolved_f_ag <- resolved_fun_df
+    coin$Log$Aggregate$resolved_f_ag_para <- resolved_param_list
   }
 
   indat_ag <- indat
 
-  # run the above function for each level
-  for(lev in 2:nlev){
-    indat_ag <- cbind(indat_ag, aggregate_level(lev))
+  for(level_key in names(hierarchy$parents_by_level)){
+    lev <- as.integer(level_key)
+    parents <- hierarchy$parents_by_level[[level_key]]
+    if(length(parents) == 0){
+      next
+    }
+
+    imeta_l <- imeta[imeta$Level == (lev - 1), ]
+    level_fun_spec <- function_specs[[level_key]]
+    level_param_spec <- parameter_specs[[level_key]]
+    weight_set <- w1[[lev - 1]]
+    dat_thresh_val <- if(is.list(dat_threshs)) dat_threshs[[lev - 1]] else dat_threshs[lev - 1]
+    if(length(dat_thresh_val) == 0){
+      dat_thresh_val <- NULL
+    }
+    by_df_val <- by_dfs[lev - 1]
+
+    level_results <- lapply(parents, function(parent_code){
+      codes <- imeta_l$iCode[imeta_l$Parent == parent_code]
+      fun_name <- level_fun_spec$overrides[[parent_code]]
+      if(is.null(fun_name)){
+        fun_name <- level_fun_spec$default
+      }
+      param_override <- level_param_spec$overrides[[parent_code]]
+      params_to_use <- if(is.null(param_override)){
+        level_param_spec$default
+      } else {
+        param_override
+      }
+      if(!is.null(weight_set)){
+        wts <- weight_set$Weight[match(codes, weight_set$iCode)]
+        params_to_use <- c(list(w = wts), params_to_use)
+      }
+      if(length(params_to_use) == 0){
+        params_to_use <- NULL
+      }
+      do.call(
+        "Aggregate",
+        list(
+          x = indat_ag[codes],
+          f_ag = fun_name,
+          f_ag_para = params_to_use,
+          dat_thresh = dat_thresh_val,
+          by_df = by_df_val
+        )
+      )
+    })
+    names(level_results) <- parents
+    level_df <- as.data.frame(level_results, check.names = FALSE)
+    indat_ag <- cbind(indat_ag, level_df)
   }
 
   # Output ------------------------------------------------------------------
@@ -470,6 +809,44 @@ Aggregate.data.frame <- function(x, f_ag = NULL, f_ag_para = NULL, dat_thresh = 
     dat_thresh <- -1 # effectively no limit
   }
 
+  # Resolve aggregation function and its arguments
+  agg_fun <- match.fun(f_ag)
+  fun_formals <- names(formals(agg_fun))
+  if(is.null(fun_formals)){
+    fun_formals <- character(0)
+  }
+  fun_formals_no_dots <- fun_formals[fun_formals != "..."]
+  data_arg_name <- if(length(fun_formals_no_dots) > 0){
+    fun_formals_no_dots[[1]]
+  } else {
+    ""
+  }
+  accepts_w <- "w" %in% fun_formals
+
+  set_data_arg <- function(val){
+    if(is.null(data_arg_name) || data_arg_name == ""){
+      list(val)
+    } else {
+      stats::setNames(list(val), data_arg_name)
+    }
+  }
+
+  filter_params <- function(params){
+    if(is.null(params)){
+      return(NULL)
+    }
+    out <- params
+    if(!accepts_w && is.list(out) && length(out) > 0){
+      nms <- names(out)
+      if(!is.null(nms)){
+        out <- out[nms != "w"]
+      }
+    }
+    out
+  }
+
+  filtered_para <- filter_params(f_ag_para)
+
   # AGGREGATE ---------------------------------------------------------------
 
   lx <- ncol(x)
@@ -479,32 +856,20 @@ Aggregate.data.frame <- function(x, f_ag = NULL, f_ag_para = NULL, dat_thresh = 
   if(by_df){
 
     # DATA FRAME AGGRGATION
-    if(is.null(f_ag_para)){
-      y <- do.call(f_ag, list(x = x))
-    } else {
-      y <- do.call(f_ag, c(list(x = x), f_ag_para))
-    }
+    call_args <- set_data_arg(x)
+    y <- do.call(f_ag, c(call_args, filtered_para))
 
   } else {
 
     # BY-ROW AGGREGATION
-    if(is.null(f_ag_para)){
-      y <- apply(x, 1, function(x){
-        if(sum(!is.na(x))/lx < dat_thresh){
-          NA
-        } else {
-          do.call(f_ag, list(x = x))
-        }
-      })
-    } else {
-      y <- apply(x, 1, function(x){
-        if(sum(!is.na(x))/lx < dat_thresh){
-          NA
-        } else {
-          do.call(f_ag, c(list(x = x), f_ag_para))
-        }
-      })
-    }
+    y <- apply(x, 1, function(x_row){
+      if(sum(!is.na(x_row))/lx < dat_thresh){
+        NA
+      } else {
+        row_args <- set_data_arg(x_row)
+        do.call(f_ag, c(row_args, filtered_para))
+      }
+    })
 
   }
 
