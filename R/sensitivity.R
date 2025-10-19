@@ -81,6 +81,10 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
   UseMethod("get_sensitivity")
 }
 
+if(getRversion() >= "2.15.1"){
+  utils::globalVariables(c("x", "xend", "y", "yend", "modified", "step_id", "label_wrapped"))
+}
+
 .get_sensitivity_impl <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboot = NULL,
                                   quietly = FALSE, check_addresses = TRUE, diagnostic_mode = FALSE){
 
@@ -123,11 +127,11 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
   addresses <- sapply(SA_specs, `[[`, "Address")
 
   # determine earliest log stage affected by the specs so regeneration can restart later in the pipeline
-  log_entries <- coin$Log$Log
+  log_entries <- .get_log_entries(coin)
   log_sequence <- character()
   if(!is.null(log_entries)){
     log_sequence <- names(log_entries)
-    log_sequence <- setdiff(log_sequence, "can_regen")
+    log_sequence <- log_sequence[log_sequence != "can_regen"]
   }
 
   address_stage_index <- function(address){
@@ -149,12 +153,21 @@ get_sensitivity <- function(coin, SA_specs, N, SA_type = "UA", dset, iCode, Nboo
 
   stage_indices <- vapply(addresses, address_stage_index, numeric(1))
   regen_from_idx <- suppressWarnings(min(stage_indices))
-  if(!is.finite(regen_from_idx) || regen_from_idx <= 1){
+  normalise_idx <- match('Normalise', log_sequence)
+  if(is.na(normalise_idx)){
+    normalise_idx <- length(log_sequence)
+  }
+  if(!is.finite(regen_from_idx) || regen_from_idx <= normalise_idx){
     regen_from <- NULL
   } else {
-    regen_from <- log_sequence[regen_from_idx]
-    if(!quietly){
-      message("Optimising regeneration: restarting from ", regen_from)
+    start_idx <- max(1, regen_from_idx - 1)
+    if(start_idx <= 1 || start_idx > length(log_sequence)){
+      regen_from <- NULL
+    } else {
+      regen_from <- log_sequence[start_idx]
+      if(!quietly){
+        message("Optimising regeneration: restarting from ", regen_from)
+      }
     }
   }
 
@@ -340,6 +353,464 @@ regen_edit <- function(l_para, addresses, coin, regen_from = NULL){
     }
   )
 
+}
+
+
+#' Visualise the regeneration pipeline targeted by `get_sensitivity()`
+#'
+#' Generates a static `ggplot2` graphic showing the order and configuration of
+#' each build step that will be executed during sensitivity or uncertainty
+#' analysis. Steps touched by the supplied specifications are highlighted and
+#' annotated with the corresponding overrides.
+#'
+#' @param coin A coin object.
+#' @param SA_specs A list of sensitivity specifications as supplied to
+#'   [get_sensitivity()].
+#' @param focus Either `"all"` (default) to show the full pipeline or
+#'   `"modified"` to keep only steps affected by the specifications.
+#'
+#' @return A `ggplot` object.
+#'
+#' @export
+plot_sensitivity_pipeline <- function(coin, SA_specs,
+                                      focus = c("all", "modified")){
+
+  focus <- match.arg(focus)
+
+  build_pipeline <- function(coin, SA_specs){
+    check_coin_input(coin)
+    stopifnot(is.list(SA_specs))
+
+    log_entries <- .get_log_entries(coin)
+    if(is.null(log_entries)){
+      stop("No regeneration log found in the supplied coin.")
+    }
+
+    step_names <- names(log_entries)
+    step_names <- step_names[step_names != "can_regen"]
+
+    default_inputs <- c(
+      Denominate = "Raw",
+      Impute = "Denominated",
+      Screen = "Imputed",
+      Treat = "Screened",
+      Normalise = "Treated",
+      Aggregate = "Normalised"
+    )
+    default_outputs <- c(
+      new_coin = "Raw",
+      Denominate = "Denominated",
+      Impute = "Imputed",
+      Screen = "Screened",
+      Treat = "Treated",
+      Normalise = "Normalised",
+      Aggregate = "Aggregated"
+    )
+
+    spec_table <- .collect_spec_metadata(SA_specs)
+    ignored_specs <- spec_table$spec_id[is.na(spec_table$step_id)]
+    if(length(ignored_specs) > 0){
+      warning("Some SA_specs do not reference the coin log and are omitted: ",
+              paste(ignored_specs, collapse = ", "), call. = FALSE)
+    }
+    spec_table <- spec_table[!is.na(spec_table$step_id), , drop = FALSE]
+
+    rows <- vector("list", length(step_names))
+
+    for(ii in seq_along(step_names)){
+      step <- step_names[ii]
+      args <- log_entries[[step]]
+      if(!is.null(args$dset)) {
+        input <- .format_scalar(args$dset)
+      } else if(step %in% names(default_inputs)) {
+        input <- default_inputs[[step]]
+      } else {
+        input <- NA_character_
+      }
+      if(!is.null(args$write_to)) {
+        output <- .format_scalar(args$write_to)
+      } else if(step %in% names(default_outputs)) {
+        output <- default_outputs[[step]]
+      } else {
+        output <- NA_character_
+      }
+
+      log_parts <- character()
+      if(!is.null(args$dset)){
+        log_parts <- c(log_parts, paste0("dset = ", .format_scalar(args$dset)))
+      }
+      if(!is.null(args$write_to)){
+        log_parts <- c(log_parts, paste0("write_to = ", .format_scalar(args$write_to)))
+      }
+      log_args <- paste(log_parts, collapse = " | ")
+
+      step_specs <- spec_table[spec_table$step_id == step, , drop = FALSE]
+      spec_desc <- character()
+      if(nrow(step_specs) > 0){
+        for(jj in seq_len(nrow(step_specs))){
+          spec_row <- step_specs[jj, ]
+          log_value <- .extract_log_value(args, spec_row$path_tokens[[1]])
+          log_label <- if(is.null(log_value)) "NULL" else .format_scalar(log_value)
+          spec_label <- .format_distribution(spec_row$distribution[[1]], spec_row$dist_type)
+          path_label <- if(length(spec_row$path_tokens[[1]]) == 0){
+            "<entry>"
+          } else {
+            paste(spec_row$path_tokens[[1]], collapse = "$")
+          }
+          spec_desc <- c(
+            spec_desc,
+            paste0(
+              spec_row$spec_id, ": ", path_label,
+              " | log = ", log_label,
+              " | spec ", spec_row$dist_type, " = ", spec_label
+            )
+          )
+        }
+      }
+
+      rows[[ii]] <- data.frame(
+        step_id = step,
+        order = ii,
+        input_dset = ifelse(length(input), input, NA_character_),
+        output_dset = ifelse(length(output), output, NA_character_),
+        log_args = if(nchar(log_args) == 0) NA_character_ else log_args,
+        spec_args = if(length(spec_desc) == 0) NA_character_ else paste(spec_desc, collapse = "; "),
+        modified = nrow(step_specs) > 0,
+        stringsAsFactors = FALSE
+      )
+    }
+
+    do.call(rbind, rows)
+  }
+
+  pipeline_df <- build_pipeline(coin, SA_specs)
+
+  if(focus == "modified"){
+    pipeline_df <- pipeline_df[pipeline_df$modified, , drop = FALSE]
+    if(nrow(pipeline_df) == 0){
+      stop("No pipeline steps are targeted by the supplied SA_specs.")
+    }
+  }
+
+  pipeline_df$x <- seq_len(nrow(pipeline_df))
+
+  wrap_text <- function(txt, width = 28){
+    if(is.na(txt) || !nzchar(txt)){
+      return(txt)
+    }
+    paste(strwrap(txt, width = width), collapse = "\n")
+  }
+
+  wrap_lines <- function(lines, width = 28){
+    if(all(is.na(lines))){
+      return(NA_character_)
+    }
+    pieces <- vapply(lines, wrap_text, character(1L))
+    paste(pieces[!is.na(pieces) & nzchar(pieces)], collapse = "\n")
+  }
+
+  defaults_df <- data.frame(
+    step_id = pipeline_df$step_id,
+    x = pipeline_df$x,
+    y = 1,
+    flow_label = paste0(pipeline_df$input_dset, " -> ", pipeline_df$output_dset),
+    log_label = ifelse(is.na(pipeline_df$log_args), NA_character_,
+                       paste0("Log: ", pipeline_df$log_args)),
+    stringsAsFactors = FALSE
+  )
+  defaults_df$label_wrapped <- apply(defaults_df[, c("flow_label", "log_label")], 1, function(rows){ wrap_lines(rows, width = 26) })
+
+  specs_df <- data.frame(
+    step_id = pipeline_df$step_id,
+    x = pipeline_df$x,
+    y = 0,
+    label = ifelse(is.na(pipeline_df$spec_args),
+                   "Spec: (default)",
+                   pipeline_df$spec_args),
+    modified = pipeline_df$modified,
+    stringsAsFactors = FALSE
+  )
+  specs_df$label_wrapped <- vapply(specs_df$label, function(x) wrap_text(x, width = 26), character(1L))
+
+  if(nrow(pipeline_df) > 1){
+    flow_df <- data.frame(
+      x = pipeline_df$x[-nrow(pipeline_df)] + 0.1,
+      xend = pipeline_df$x[-1] - 0.1,
+      stringsAsFactors = FALSE
+    )
+  } else {
+    flow_df <- NULL
+  }
+
+  diff_df <- specs_df[specs_df$modified, , drop = FALSE]
+
+  p <- ggplot2::ggplot() +
+    (if(!is.null(flow_df)) ggplot2::geom_segment(data = flow_df,
+                          ggplot2::aes(x = x, xend = xend, y = 1, yend = 1),
+                          linewidth = 0.55, colour = "#636363",
+                          arrow = grid::arrow(length = grid::unit(0.14, "cm"), ends = "last")) else NULL) +
+    (if(!is.null(flow_df)) ggplot2::geom_segment(data = flow_df,
+                          ggplot2::aes(x = x, xend = xend, y = 0, yend = 0),
+                          linewidth = 0.55, colour = "#bdbdbd",
+                          arrow = grid::arrow(length = grid::unit(0.12, "cm"), ends = "last")) else NULL) +
+    ggplot2::geom_point(data = defaults_df,
+                        ggplot2::aes(x = x, y = y), size = 4.5,
+                        colour = "#1f78b4", fill = "#a6cee3", shape = 21, stroke = 1) +
+    ggplot2::geom_point(data = specs_df,
+                        ggplot2::aes(x = x, y = y, fill = modified),
+                        size = 4.5, colour = "#525252", shape = 21, stroke = 1.1) +
+    ggplot2::geom_segment(data = diff_df,
+                          ggplot2::aes(x = x, xend = x, y = 1, yend = 0),
+                          colour = "#fb6a4a", linewidth = 0.6, linetype = "dashed") +
+    ggplot2::geom_text(data = defaults_df,
+                       ggplot2::aes(x = x, y = y + 0.12, label = step_id),
+                       fontface = "bold", size = 3.8, vjust = 0) +
+    ggplot2::geom_text(data = defaults_df,
+                       ggplot2::aes(x = x, y = y - 0.12, label = label_wrapped),
+                       size = 3.2, lineheight = 1.05, vjust = 1) +
+    ggplot2::geom_label(data = specs_df,
+                        ggplot2::aes(x = x, y = y - 0.27, label = label_wrapped, fill = modified),
+                        size = 2.9, label.size = 0.12,
+                        label.padding = grid::unit(0.12, "lines"),
+                        colour = "#202020") +
+    ggplot2::scale_fill_manual(values = c(`TRUE` = "#fb6a4a", `FALSE` = "#a6d96a"),
+                               breaks = c(FALSE, TRUE),
+                               labels = c("Follows log defaults", "Overrides via SA_specs"),
+                               name = NULL) +
+    ggplot2::scale_x_continuous(breaks = pipeline_df$x,
+                                labels = pipeline_df$step_id,
+                                expand = ggplot2::expansion(mult = c(0.02, 0.04))) +
+    ggplot2::coord_cartesian(xlim = c(0.5, max(pipeline_df$x) + 0.5),
+                             ylim = c(-0.72, 1.12)) +
+    ggplot2::labs(x = NULL, y = NULL) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(
+      axis.text.y = ggplot2::element_blank(),
+      axis.text.x = ggplot2::element_blank(),
+      axis.ticks = ggplot2::element_blank(),
+      panel.grid = ggplot2::element_blank(),
+      legend.position = "bottom"
+    )
+
+  attr(p, "pipeline_df") <- pipeline_df
+
+  p
+}
+
+
+.get_log_entries <- function(coin){
+  log_entries <- NULL
+  if(!is.null(coin$Log)){
+    log_entries <- coin$Log[["Log"]]
+    if(!is.list(log_entries) && is.list(coin$Log)){
+      log_entries <- coin$Log
+    }
+  }
+  if(is.list(log_entries)){
+    log_entries
+  } else {
+    NULL
+  }
+}
+
+.collect_spec_metadata <- function(SA_specs){
+
+  if(length(SA_specs) == 0){
+    return(data.frame(
+      spec_id = character(0),
+      step_id = character(0),
+      path_tokens = I(list()),
+      distribution = I(list()),
+      dist_type = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  out <- vector("list", length(SA_specs))
+
+  idx <- 1L
+  for(spec_name in names(SA_specs)){
+    spec <- SA_specs[[spec_name]]
+    address <- spec$Address
+    if(is.null(address)){
+      warning("SA_spec '", spec_name, "' does not contain an Address entry.", call. = FALSE)
+      next
+    }
+    tokens <- strsplit(sub("^\\$", "", address), "\\$", fixed = FALSE)[[1]]
+    if(length(tokens) == 0){
+      next
+    }
+    if(tokens[1] == "Log"){
+      if(length(tokens) >= 2){
+        step <- tokens[2]
+        path_tokens <- if(length(tokens) > 2) tokens[3:length(tokens)] else character(0)
+      } else {
+        step <- NA_character_
+        path_tokens <- character(0)
+      }
+    } else {
+      step <- NA_character_
+      path_tokens <- tokens[-1]
+    }
+    out[[idx]] <- list(
+      spec_id = spec_name,
+      step_id = step,
+      path_tokens = list(path_tokens),
+      distribution = list(if(is.null(spec$Distribution)) NULL else spec$Distribution),
+      dist_type = if(is.null(spec$Type)) "unspecified" else spec$Type
+    )
+    idx <- idx + 1L
+  }
+
+  out <- out[!vapply(out, is.null, logical(1))]
+
+  if(length(out) == 0){
+    return(data.frame(
+      spec_id = character(0),
+      step_id = character(0),
+      path_tokens = I(list()),
+      distribution = I(list()),
+      dist_type = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  do.call(rbind, lapply(out, function(row){
+    data.frame(
+      spec_id = row$spec_id,
+      step_id = row$step_id,
+      path_tokens = I(row$path_tokens),
+      distribution = I(row$distribution),
+      dist_type = row$dist_type,
+      stringsAsFactors = FALSE
+    )
+  }))
+}
+
+.extract_log_value <- function(x, tokens){
+  if(length(tokens) == 0){
+    return(x)
+  }
+  current <- x
+  for(token in tokens){
+    if(is.null(current)){
+      return(NULL)
+    }
+    if(is.list(current)){
+      if(!is.null(current[[token]])){
+        current <- current[[token]]
+        next
+      }
+      suppressWarnings(num_token <- as.integer(token))
+      if(!is.na(num_token) && num_token >= 1 && num_token <= length(current)){
+        current <- current[[num_token]]
+        next
+      }
+    }
+    return(NULL)
+  }
+  current
+}
+
+.format_distribution <- function(distribution, dist_type){
+
+  if(is.null(distribution)){
+    return("NULL")
+  }
+
+  if(identical(dist_type, "continuous") && is.atomic(distribution) && length(distribution) == 2){
+    return(paste0("[", paste(.format_scalar(distribution), collapse = ", "), "]"))
+  }
+
+  if(identical(dist_type, "discrete")){
+
+    if(is.atomic(distribution)){
+      vals <- .collapse_vals(distribution)
+      return(paste0("{", vals, "}"))
+    }
+
+    if(is.list(distribution)){
+      alt_desc <- vapply(seq_along(distribution), function(ii){
+        desc <- .format_alternative(distribution[[ii]])
+        paste0(ii, ": ", desc)
+      }, character(1))
+      if(length(alt_desc) > 3){
+        alt_desc <- c(alt_desc[1:2], paste0("...", length(alt_desc) - 2, " more"))
+      }
+      return(paste0("{", paste(alt_desc, collapse = "; "), "}"))
+    }
+  }
+
+  .format_scalar(distribution)
+}
+
+.collapse_vals <- function(x, max_n = 6){
+  if(length(x) > max_n){
+    paste0(paste(x[seq_len(max_n - 1)], collapse = ", "), ", ...")
+  } else {
+    paste(x, collapse = ", ")
+  }
+}
+
+.format_alternative <- function(alt){
+  if(is.list(alt) && length(alt) == 1 && is.null(names(alt))){
+    return(.format_scalar(alt[[1]]))
+  }
+  if(is.list(alt)){
+    nm <- names(alt)
+    pieces <- vapply(seq_along(alt), function(ii){
+      label <- if(is.null(nm) || nm[ii] == ""){
+        paste0("[[", ii, "]]")
+      } else {
+        nm[ii]
+      }
+      paste0(label, "=", .format_scalar(alt[[ii]]))
+    }, character(1))
+    return(paste(pieces, collapse = ", "))
+  }
+  .format_scalar(alt)
+}
+
+.format_scalar <- function(x){
+
+  if(is.null(x)){
+    return("NULL")
+  }
+
+  if(is.atomic(x)){
+    if(length(x) == 0){
+      return("NULL")
+    }
+    if(length(x) == 1){
+      return(as.character(x))
+    }
+    return(.collapse_vals(as.character(x)))
+  }
+
+  if(is.list(x)){
+    if(length(x) == 0){
+      return("list()")
+    }
+    if(length(x) == 1 && is.null(names(x))){
+      return(.format_scalar(x[[1]]))
+    }
+    nm <- names(x)
+    pieces <- vapply(seq_along(x), function(ii){
+      label <- if(is.null(nm) || nm[ii] == ""){
+        paste0("[[", ii, "]]")
+      } else {
+        nm[ii]
+      }
+      paste0(label, "=", .format_scalar(x[[ii]]))
+    }, character(1))
+    return(paste(pieces, collapse = ", "))
+  }
+
+  if(is.environment(x)){
+    return("<env>")
+  }
+
+  paste0("<", paste(class(x), collapse = ","), ">")
 }
 
 
