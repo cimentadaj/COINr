@@ -20,7 +20,7 @@ coin <- Impute(coin, dset = "Raw", f_i = "i_mean", write_to = "Imputed")
 coin <- Denominate(coin, dset = "Imputed", write_to = "Denominated")
 coin <- Treat(coin, dset = "Denominated", write_to = "Treated")
 coin <- Normalise(coin, dset = "Treated", write_to = "Normalised")
-coin <- Aggregate(coin, dset = "Raw")
+coin <- Aggregate(coin, dset = "Normalised")
 coin <- Screen(coin, dset = "Normalised", unit_screen = "byNA", dat_thresh = 0.9)
 
 cat("\nSCENARIO 1 - BALANCED META WITH PLACEHOLDERS\n")
@@ -42,7 +42,7 @@ mixed_f_ag_para <- list(
 
 mixed_raw <- Aggregate(
   coin,
-  dset = "Raw",
+  dset = "Normalised",
   f_ag = mixed_f_ag,
   f_ag_para = mixed_f_ag_para
 )
