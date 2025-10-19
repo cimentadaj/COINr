@@ -56,7 +56,7 @@ The default values for \code{global_specs} are as follows:
                                     skew_thresh = 2,
                                     kurt_thresh = 3.5,
                                     force_win = FALSE),
-                     f2 = "log_CT",
+                     f2 = "boxcox_auto",
                      f2_para = list(na.rm = TRUE),
                      f_pass = "check_SkewKurt",
                      f_pass_para = list(na.rm = TRUE,
@@ -67,7 +67,7 @@ The default values for \code{global_specs} are as follows:
 This shows that by default (i.e. if \code{global_specs} is not specified), each column is checked for outliers by the \code{\link[=check_SkewKurt]{check_SkewKurt()}} function, which
 uses skew and kurtosis thresholds as its parameters. Then, if outliers exist, the first function \code{\link[=winsorise]{winsorise()}} is applied, which also
 uses skew and kurtosis parameters, as well as a maximum number of winsorised points. If the Winsorisation function does not satisfy
-\code{f_pass}, the \code{\link[=log_CT]{log_CT()}} function is invoked.
+\code{f_pass}, the \code{\link[=boxcox_auto]{boxcox_auto()}} function is invoked to select and apply a Box-Cox transformation.
 
 To change the global specifications, you don't have to supply the whole list. If, for example, you are happy with all the defaults but
 want to simply change the maximum number of Winsorised points, you could specify e.g. \code{global_specs = list(f1_para = list(winmax = 3))}.

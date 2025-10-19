@@ -115,7 +115,7 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'                                     skew_thresh = 2,
 #'                                     kurt_thresh = 3.5,
 #'                                     force_win = FALSE),
-#'                      f2 = "log_CT",
+#'                      f2 = "boxcox_auto",
 #'                      f2_para = list(na.rm = TRUE),
 #'                      f_pass = "check_SkewKurt",
 #'                      f_pass_para = list(na.rm = TRUE,
@@ -126,7 +126,7 @@ Treat.purse <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' This shows that by default (i.e. if `global_specs` is not specified), each indicator is checked for outliers by the [check_SkewKurt()] function, which
 #' uses skew and kurtosis thresholds as its parameters. Then, if outliers exist, the first function [winsorise()] is applied, which also
 #' uses skew and kurtosis parameters, as well as a maximum number of winsorised points. If the Winsorisation function does not satisfy
-#' `f_pass`, the [log_CT()] function is invoked.
+#' `f_pass`, the [boxcox_auto()] function is invoked to select and apply a Box-Cox transformation.
 #'
 #' To change the global specifications, you don't have to supply the whole list. If, for example, you are happy with all the defaults but
 #' want to simply change the maximum number of Winsorised points, you could specify e.g. `global_specs = list(f1_para = list(winmax = 3))`.
@@ -305,7 +305,7 @@ Treat.coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #'                                     skew_thresh = 2,
 #'                                     kurt_thresh = 3.5,
 #'                                     force_win = FALSE),
-#'                      f2 = "log_CT",
+#'                      f2 = "boxcox_auto",
 #'                      f2_para = list(na.rm = TRUE),
 #'                      f_pass = "check_SkewKurt",
 #'                      f_pass_para = list(na.rm = TRUE,
@@ -316,7 +316,7 @@ Treat.coin <- function(x, dset, global_specs = NULL, indiv_specs = NULL,
 #' This shows that by default (i.e. if `global_specs` is not specified), each column is checked for outliers by the [check_SkewKurt()] function, which
 #' uses skew and kurtosis thresholds as its parameters. Then, if outliers exist, the first function [winsorise()] is applied, which also
 #' uses skew and kurtosis parameters, as well as a maximum number of winsorised points. If the Winsorisation function does not satisfy
-#' `f_pass`, the [log_CT()] function is invoked.
+#' `f_pass`, the [boxcox_auto()] function is invoked to select and apply a Box-Cox transformation.
 #'
 #' To change the global specifications, you don't have to supply the whole list. If, for example, you are happy with all the defaults but
 #' want to simply change the maximum number of Winsorised points, you could specify e.g. `global_specs = list(f1_para = list(winmax = 3))`.
@@ -412,7 +412,7 @@ Treat.data.frame <- function(x, global_specs = NULL, indiv_specs = NULL, combine
                                    skew_thresh = 2,
                                    kurt_thresh = 3.5,
                                    force_win = FALSE),
-                    f2 = "log_CT",
+                    f2 = "boxcox_auto",
                     f2_para = list(na.rm = TRUE),
                     f_pass = "check_SkewKurt",
                     f_pass_para = list(na.rm = TRUE,
@@ -828,7 +828,7 @@ Treat <- function (x, ...){
 #'
 #' Follows a "standard" Winsorisation approach: points are successively Winsorised in order to bring
 #' skew and kurtosis thresholds within specified limits. Specifically, aims to bring absolute skew to
-#' below a threshold (default 2.25) and kurtosis below another threshold (default 3.5).
+#' below a threshold (default 2) and kurtosis below another threshold (default 3.5).
 #'
 #' Winsorisation here is defined as reassigning the point with the highest/lowest value with the value of the
 #' next highest/lowest point. Whether to Winsorise at the high or low end of the scale is decided by the direction
@@ -839,7 +839,7 @@ Treat <- function (x, ...){
 #' @param x A numeric vector.
 #' @param na.rm Set `TRUE` to remove `NA` values, otherwise returns `NA`.
 #' @param winmax Maximum number of points to Winsorise. Default 5. Set `NULL` to have no limit.
-#' @param skew_thresh A threshold for absolute skewness (positive). Default 2.25.
+#' @param skew_thresh A threshold for absolute skewness (positive). Default 2.
 #' @param kurt_thresh A threshold for kurtosis. Default 3.5.
 #' @param force_win Logical: if `TRUE`, forces winsorisation up to winmax (regardless of skew/kurt).
 #' Default `FALSE`. Note - this option should be used with care because the direction of Winsorisation
@@ -1110,6 +1110,101 @@ boxcox <- function(x, lambda, makepos = TRUE, na.rm = FALSE){
 }
 
 
+#' Box-Cox transformation with automatic lambda selection
+#'
+#' Selects the Box-Cox parameter that minimises the absolute skewness of the transformed data over
+#' a supplied search range. The transform is then applied to the full vector, with diagnostics on the
+#' pre- and post-treatment skewness returned for logging.
+#'
+#' @param x A numeric vector.
+#' @param na.rm Logical: if `TRUE`, `NA`s are removed before estimating the lambda parameter. Default `FALSE`.
+#' @param lambda_range Numeric vector of length 2 giving the lower and upper bounds for the search. Default `c(-3, 3)`.
+#' @param n_lambda Integer giving the number of lambda values to evaluate between the bounds. Default `61`.
+#' @param makepos Logical: passed to [boxcox()] to ensure the data are positive prior to transformation. Default `TRUE`.
+#'
+#' @return A list with the transformed vector (`x`), a character vector describing the treatment applied
+#' (`treated`), and diagnostic entries for the selected `lambda`, and skewness before and after transformation.
+#'
+#' @export
+#'
+#' @examples
+#' set.seed(123)
+#' x <- rexp(20, rate = 2)
+#' boxcox_auto(x)
+boxcox_auto <- function(x, na.rm = FALSE, lambda_range = c(-3, 3), n_lambda = 61, makepos = TRUE){
+
+  stopifnot(is.numeric(x),
+            length(lambda_range) == 2,
+            lambda_range[1] < lambda_range[2],
+            n_lambda >= 2)
+
+  treated_flag <- rep("", length(x))
+
+  if(!na.rm && anyNA(x)){
+    return(list(x = x,
+                treated = treated_flag,
+                lambda = NA_real_,
+                Skew_Before = NA_real_,
+                Skew_After = NA_real_))
+  }
+
+  x_work <- if(na.rm) x[!is.na(x)] else x
+
+  if(length(x_work) < 3){
+    return(list(x = x,
+                treated = treated_flag,
+                lambda = NA_real_,
+                Skew_Before = NA_real_,
+                Skew_After = NA_real_))
+  }
+
+  skew_before <- skew(x_work, na.rm = FALSE)
+  if(is.na(skew_before)){
+    return(list(x = x,
+                treated = treated_flag,
+                lambda = NA_real_,
+                Skew_Before = NA_real_,
+                Skew_After = NA_real_))
+  }
+
+  lambdas <- seq(lambda_range[1], lambda_range[2], length.out = n_lambda)
+  lambdas <- unique(sort(c(lambdas, 0, 1)))
+
+  obj_vals <- vapply(lambdas, function(lam){
+    x_bc <- boxcox(x_work, lambda = lam, makepos = makepos, na.rm = TRUE)
+    skew(x_bc, na.rm = TRUE)
+  }, numeric(1))
+
+  if(all(is.na(obj_vals))){
+    return(list(x = x,
+                treated = treated_flag,
+                lambda = NA_real_,
+                Skew_Before = skew_before,
+                Skew_After = NA_real_))
+  }
+
+  abs_obj <- abs(obj_vals)
+  best_idx <- which(abs_obj == min(abs_obj, na.rm = TRUE))
+  if(length(best_idx) > 1){
+    best_idx <- best_idx[which.min(abs(lambdas[best_idx] - 1))]
+  }
+  lambda_best <- lambdas[best_idx[1]]
+
+  x_trans <- boxcox(x, lambda = lambda_best, makepos = makepos, na.rm = TRUE)
+  skew_after <- skew(x_trans, na.rm = TRUE)
+
+  treated_flag[] <- "boxcox_auto"
+
+  list(
+    x = x_trans,
+    treated = treated_flag,
+    lambda = lambda_best,
+    Skew_Before = skew_before,
+    Skew_After = skew_after
+  )
+}
+
+
 #' Calculate skewness
 #'
 #' Calculates skewness of the values of a numeric vector. This uses the same definition of skewness as
@@ -1196,11 +1291,11 @@ kurt <- function(x, na.rm = FALSE){
 
 #' Check skew and kurtosis of a vector
 #'
-#' Logical test: if `abs(skewness) < skew_thresh` OR `kurtosis < kurt_thresh`, returns `TRUE`, else `FALSE`
+#' Logical test: returns `TRUE` unless both `abs(skewness) > skew_thresh` and `kurtosis > kurt_thresh`.
 #'
 #' @param x A numeric vector.
 #' @param na.rm Set `TRUE` to remove `NA` values, otherwise returns `NA`.
-#' @param skew_thresh A threshold for absolute skewness (positive). Default 2.25.
+#' @param skew_thresh A threshold for absolute skewness (positive). Default 2.
 #' @param kurt_thresh A threshold for kurtosis. Default 3.5.
 #'
 #' @examples
@@ -1221,8 +1316,8 @@ check_SkewKurt <- function(x, na.rm = FALSE, skew_thresh = 2, kurt_thresh = 3.5)
   sk <- skew(x, na.rm = na.rm)
   kt <- kurt(x, na.rm = na.rm)
 
-  # logical test
-  ans <- (abs(sk) < skew_thresh) | (kt < kurt_thresh)
+  # logical test: fail only when both skew and kurtosis breach thresholds
+  ans <- !((abs(sk) > skew_thresh) & (kt > kurt_thresh))
 
   # make sure output is sensible
   stopifnot(is.logical(ans),

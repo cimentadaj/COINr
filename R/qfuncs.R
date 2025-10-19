@@ -218,7 +218,7 @@ qNormalise <- function (x, ...){
 #' @param winmax Maximum number of points to Winsorise for each indicator. Default 5.
 #' @param skew_thresh Absolute skew threshold - default 2.
 #' @param kurt_thresh Kurtosis threshold - default 3.5.
-#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"log_CT"`.
+#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"boxcox_auto"`.
 #' @param ... arguments passed to or from other methods.
 #'
 #' @return An updated purse
@@ -226,8 +226,10 @@ qNormalise <- function (x, ...){
 #'
 #' @examples
 #' #
-qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5, f2 = "log_CT",
+qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5, f2 = "boxcox_auto",
                          ...){
+
+  f2_para <- if(identical(f2, "boxcox_auto")) list(na.rm = TRUE) else NULL
 
   # pass args to specs list
   global_specs <- list(f1 = "winsorise",
@@ -235,6 +237,7 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
                                        skew_thresh = skew_thresh,
                                        kurt_thresh = kurt_thresh),
                         f2 = f2,
+                        f2_para = f2_para,
                         f_pass_para = list(skew_thresh = skew_thresh,
                                            kurt_thresh = kurt_thresh))
 
@@ -255,7 +258,7 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
 #' * If the indicator is not within the limits, it applies the [winsorise()] function, with maximum number of winsorised
 #' points specified by `winmax`.
 #' * If winsorisation does not bring the indicator within the skew/kurtosis limits, it is instead passed to `f2`, which is
-#' a second outlier treatment function, default [log_CT()].
+#' a second outlier treatment function, default [boxcox_auto()].
 #'
 #' The arguments of [qTreat()] are passed to [Treat()].
 #'
@@ -266,7 +269,7 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
 #' @param winmax Maximum number of points to Winsorise for each indicator. Default 5.
 #' @param skew_thresh Absolute skew threshold - default 2.
 #' @param kurt_thresh Kurtosis threshold - default 3.5.
-#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"log_CT"`.
+#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"boxcox_auto"`.
 #' @param ... arguments passed to or from other methods.
 #'
 #' @return A coin (or `unbalanced_coin`) with treated data set at `.$Data$Treated`.
@@ -280,10 +283,12 @@ qTreat.purse <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5
 #' coin <- qTreat(coin, dset = "Raw", winmax = 3)
 #'
 qTreat.coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
-                        f2 = "log_CT", ...){
+                        f2 = "boxcox_auto", ...){
 
   # write log
   coin <- write_log(x, dont_write = "x", write2log = TRUE)
+
+  f2_para <- if(identical(f2, "boxcox_auto")) list(na.rm = TRUE) else NULL
 
   # pass args to specs list
   global_specs <- list(f1 = "winsorise",
@@ -291,6 +296,7 @@ qTreat.coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
                                        skew_thresh = skew_thresh,
                                        kurt_thresh = kurt_thresh),
                         f2 = f2,
+                        f2_para = f2_para,
                         f_pass_para = list(skew_thresh = skew_thresh,
                                            kurt_thresh = kurt_thresh))
 
@@ -301,15 +307,18 @@ qTreat.coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
 #' @describeIn qTreat.coin Wrapper that keeps the unbalanced hierarchy while applying the quick treatment defaults.
 #' @export
 qTreat.unbalanced_coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
-                                   f2 = "log_CT", ...){
+                                   f2 = "boxcox_auto", ...){
 
   coin <- write_log(x, dont_write = "x", write2log = TRUE)
+
+  f2_para <- if(identical(f2, "boxcox_auto")) list(na.rm = TRUE) else NULL
 
   global_specs <- list(f1 = "winsorise",
                        f1_para = list(winmax = winmax,
                                       skew_thresh = skew_thresh,
                                       kurt_thresh = kurt_thresh),
                        f2 = f2,
+                       f2_para = f2_para,
                        f_pass_para = list(skew_thresh = skew_thresh,
                                           kurt_thresh = kurt_thresh))
 
@@ -330,7 +339,7 @@ qTreat.unbalanced_coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_th
 #' * If the column is not within the limits, it applies the [winsorise()] function, with maximum number of winsorised
 #' points specified by `winmax`.
 #' * If winsorisation does not bring the column within the skew/kurtosis limits, it is instead passed to `f2`, which is
-#' a second outlier treatment function, default [log_CT()].
+#' a second outlier treatment function, default [boxcox_auto()].
 #'
 #' The arguments of [qTreat()] are passed to [Treat()].
 #'
@@ -340,7 +349,7 @@ qTreat.unbalanced_coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_th
 #' @param winmax Maximum number of points to Winsorise for each column. Default 5.
 #' @param skew_thresh Absolute skew threshold - default 2.
 #' @param kurt_thresh Kurtosis threshold - default 3.5.
-#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"log_CT"`.
+#' @param f2 Function to call if Winsorisation does not bring skew and kurtosis within limits. Default `"boxcox_auto"`.
 #' @param ... arguments passed to or from other methods.
 #'
 #' @return A list
@@ -357,7 +366,9 @@ qTreat.unbalanced_coin <- function(x, dset, winmax = 5, skew_thresh = 2, kurt_th
 #' l_treat$Dets_Table
 #'
 qTreat.data.frame <- function(x, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
-                              f2 = "log_CT", ...){
+                              f2 = "boxcox_auto", ...){
+
+  f2_para <- if(identical(f2, "boxcox_auto")) list(na.rm = TRUE) else NULL
 
   # pass args to specs list
   global_specs <- list(f1 = "winsorise",
@@ -365,6 +376,7 @@ qTreat.data.frame <- function(x, winmax = 5, skew_thresh = 2, kurt_thresh = 3.5,
                                        skew_thresh = skew_thresh,
                                        kurt_thresh = kurt_thresh),
                         f2 = f2,
+                        f2_para = f2_para,
                         f_pass_para = list(skew_thresh = skew_thresh,
                                            kurt_thresh = kurt_thresh))
 

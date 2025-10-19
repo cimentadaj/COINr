@@ -126,3 +126,44 @@ test_that("Treat unbalanced coin", {
                "Set out2 = 'unbalanced_coin'")
 
 })
+
+test_that("Skew-kurtosis check only fails when both thresholds are breached", {
+
+  x <- c(1:10, 100)
+
+  # baseline failure with both thresholds exceeded
+  expect_false(check_SkewKurt(x)$Pass)
+
+  # customise kurtosis threshold so only skew exceeds: now should pass
+  expect_true(check_SkewKurt(x, skew_thresh = 2, kurt_thresh = 11)$Pass)
+
+  # lowering thresholds forces a failure again
+  expect_false(check_SkewKurt(x, skew_thresh = 1, kurt_thresh = 2)$Pass)
+})
+
+test_that("Box-Cox automatic transformation reduces skewness and logs lambda", {
+
+  set.seed(991)
+  x <- rlnorm(200, meanlog = 1, sdlog = 1.5)
+
+  res <- Treat(x,
+               f1 = "winsorise",
+               f1_para = list(na.rm = TRUE,
+                              winmax = 0,
+                              skew_thresh = 2,
+                              kurt_thresh = 3.5,
+                              force_win = FALSE),
+               f2 = "boxcox_auto",
+               f2_para = list(na.rm = TRUE),
+               f_pass = "check_SkewKurt",
+               f_pass_para = list(na.rm = TRUE,
+                                  skew_thresh = 2,
+                                  kurt_thresh = 3.5))
+
+  bc_details <- res$Dets_Table$boxcox_auto
+
+  expect_named(bc_details, c("lambda", "Skew_Before", "Skew_After"))
+  expect_false(is.na(bc_details$lambda))
+  expect_lt(abs(bc_details$Skew_After), abs(bc_details$Skew_Before))
+  expect_true(check_SkewKurt(res$x)$Pass)
+})

@@ -20,7 +20,7 @@ winsorise(
 
 \item{winmax}{Maximum number of points to Winsorise. Default 5. Set \code{NULL} to have no limit.}
 
-\item{skew_thresh}{A threshold for absolute skewness (positive). Default 2.25.}
+\item{skew_thresh}{A threshold for absolute skewness (positive). Default 2.}
 
 \item{kurt_thresh}{A threshold for kurtosis. Default 3.5.}
 
@@ -36,7 +36,7 @@ were treated.
 \description{
 Follows a "standard" Winsorisation approach: points are successively Winsorised in order to bring
 skew and kurtosis thresholds within specified limits. Specifically, aims to bring absolute skew to
-below a threshold (default 2.25) and kurtosis below another threshold (default 3.5).
+below a threshold (default 2) and kurtosis below another threshold (default 3.5).
 }
 \details{
 Winsorisation here is defined as reassigning the point with the highest/lowest value with the value of the

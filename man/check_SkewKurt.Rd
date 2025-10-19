@@ -11,7 +11,7 @@ check_SkewKurt(x, na.rm = FALSE, skew_thresh = 2, kurt_thresh = 3.5)
 
 \item{na.rm}{Set \code{TRUE} to remove \code{NA} values, otherwise returns \code{NA}.}
 
-\item{skew_thresh}{A threshold for absolute skewness (positive). Default 2.25.}
+\item{skew_thresh}{A threshold for absolute skewness (positive). Default 2.}
 
 \item{kurt_thresh}{A threshold for kurtosis. Default 3.5.}
 }
@@ -20,7 +20,7 @@ A list with \code{.$Pass} is a Logical, where \code{TRUE} is pass, \code{FALSE} 
 sub-list with skew and kurtosis values.
 }
 \description{
-Logical test: if \code{abs(skewness) < skew_thresh} OR \code{kurtosis < kurt_thresh}, returns \code{TRUE}, else \code{FALSE}
+Logical test: returns \code{TRUE} unless both \code{abs(skewness) > skew_thresh} and \code{kurtosis > kurt_thresh}.
 }
 \examples{
 set.seed(100)

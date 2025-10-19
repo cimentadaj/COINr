@@ -11,7 +11,7 @@
   winmax = 5,
   skew_thresh = 2,
   kurt_thresh = 3.5,
-  f2 = "log_CT",
+  f2 = "boxcox_auto",
   ...
 )
 
@@ -21,7 +21,7 @@
   winmax = 5,
   skew_thresh = 2,
   kurt_thresh = 3.5,
-  f2 = "log_CT",
+  f2 = "boxcox_auto",
   ...
 )
 }
@@ -36,7 +36,7 @@
 
 \item{kurt_thresh}{Kurtosis threshold - default 3.5.}
 
-\item{f2}{Function to call if Winsorisation does not bring skew and kurtosis within limits. Default \code{"log_CT"}.}
+\item{f2}{Function to call if Winsorisation does not bring skew and kurtosis within limits. Default \code{"boxcox_auto"}.}
 
 \item{...}{arguments passed to or from other methods.}
 }
@@ -55,7 +55,7 @@ This function treats each indicator in the data set targeted by \code{dset} usin
 \item If the indicator is not within the limits, it applies the \code{\link[=winsorise]{winsorise()}} function, with maximum number of winsorised
 points specified by \code{winmax}.
 \item If winsorisation does not bring the indicator within the skew/kurtosis limits, it is instead passed to \code{f2}, which is
-a second outlier treatment function, default \code{\link[=log_CT]{log_CT()}}.
+a second outlier treatment function, default \code{\link[=boxcox_auto]{boxcox_auto()}}.
 }
 
 The arguments of \code{\link[=qTreat]{qTreat()}} are passed to \code{\link[=Treat]{Treat()}}.

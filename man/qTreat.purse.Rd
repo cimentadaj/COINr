@@ -10,7 +10,7 @@
   winmax = 5,
   skew_thresh = 2,
   kurt_thresh = 3.5,
-  f2 = "log_CT",
+  f2 = "boxcox_auto",
   ...
 )
 }
@@ -25,7 +25,7 @@
 
 \item{kurt_thresh}{Kurtosis threshold - default 3.5.}
 
-\item{f2}{Function to call if Winsorisation does not bring skew and kurtosis within limits. Default \code{"log_CT"}.}
+\item{f2}{Function to call if Winsorisation does not bring skew and kurtosis within limits. Default \code{"boxcox_auto"}.}
 
 \item{...}{arguments passed to or from other methods.}
 }
