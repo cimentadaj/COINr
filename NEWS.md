@@ -1,3 +1,18 @@
+# COINr 1.1.15
+
+## New features
+
+- **New function `get_combinations()`**: Performs exhaustive analysis of indicator combinations within dimensions. Tests all possible indicator subsets and evaluates them using multiple statistical criteria including PCA variance, Cronbach's alpha, eigenvalue counts, and correlation patterns. Helps identify optimal indicator combinations for composite indicators. Migrated from COINauditr package.
+  - Supports flexible combination size constraints via `global_min_max` and `indiv_min_max` parameters
+  - Allows adding/dropping indicators from dimensions via `add_elements` and `drop_elements`
+  - Implements S3 methods for both `coin` and `unbalanced_coin` classes
+  - Returns detailed statistics for all tested combinations plus subset of "successful" combinations meeting quality thresholds
+  - **Performance note**: Computational complexity grows exponentially with indicator count. For >12 indicators per dimension, consider restricting combination size ranges.
+
+## Dependencies
+
+- Added `dplyr`, `tidyr`, and `psych` to package dependencies (required for `get_combinations()`)
+
 # COINr 1.1.14
 
 - Minor bug fixes: spaces in uCodes, issue exporting 2-level composite indicators to Excel

@@ -129,3 +129,12 @@ cat("DEA scores (first 5 units):\n")
 print(head(dea_result$DEA_CI[c("uCode", "Dea")], 5))
 cat("\nNormalized DEA weights (average across all units):\n")
 print(dea_result$norm.weights)
+
+cat("\n=== COMBINATION ANALYSIS EXAMPLE ===\n")
+# Test all possible indicator combinations within a dimension
+combo_res <- get_combinations(coin, dset = "Normalised", dimension = "SubA",
+                               PCA_ref = 0.65, cronbach_alpha_ref = 0.7, verbose = FALSE)
+cat(sprintf("Tested %d combinations, found %d successful\n",
+            nrow(combo_res$Combinations$SubA), nrow(combo_res$Successful$SubA)))
+cat("Successful combinations meet criteria: PCA ≥ 0.65, eigenvalues < 2, Cronbach's α ≥ 0.7\n")
+
