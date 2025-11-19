@@ -170,6 +170,30 @@ test_that("noisy_weights", {
 
 })
 
+test_that("get_perturbed_weight_samples", {
+
+  # test with four equal weights
+  w <- c(0.25, 0.25, 0.25, 0.25)
+
+  Xw <- get_perturbed_weight_samples(w, pert_by = 0.1, Nrep = 10,
+                                     quietly = FALSE, tolerance = 0.01)
+
+  expect_type(Xw, "double")
+  expect_equal(nrow(Xw), 10)
+
+  # check max/min of columns within bounds
+  mincols <- apply(Xw, 2, min)
+  maxcols <- apply(Xw, 2, max)
+  expect_true(all(mincols >= 0.25*0.9))
+  expect_true(all(maxcols <= 0.25*1.1))
+
+  # check weight sum within tolerance
+  wsums <- apply(Xw, 1, sum)
+  expect_true(all(wsums >= 0.99))
+  expect_true(all(wsums <= 1.01))
+
+})
+
 test_that("get_noisy_weights.unbalanced_coin strips placeholders", {
 
   data("unbal_iData", package = "COINr")

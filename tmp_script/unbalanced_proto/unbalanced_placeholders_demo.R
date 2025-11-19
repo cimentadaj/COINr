@@ -140,5 +140,31 @@ cat("Successful combinations meet criteria: PCA ≥ 0.65, eigenvalues < 2, Cronb
 
 cat("\n=== GET ICODES IN GROUP EXAMPLE ===\n")
 cat("Find all indicators (level 1) within SubA:\n")
-print(get_iCodes_in_group(coin, iCode_group = "SubA", at_level = 3))
+print(get_iCodes_in_group(coin, iCode_group = "SubA", at_level = 1))
+
+cat("\n=== GET PERTURBED WEIGHT SAMPLES EXAMPLE ===\n")
+# Example 1: Equal weights with 10% perturbation
+w <- c(0.25, 0.25, 0.25, 0.25)
+perturbed_weights <- get_perturbed_weight_samples(w, pert_by = 0.1, Nrep = 10,
+                                                   quietly = FALSE, tolerance = 0.01)
+cat("Example 1: Four equal weights with +/-10% perturbation\n")
+print(perturbed_weights)
+cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights), 4), collapse = ", "), "\n"))
+
+# Example 2: Unequal weights with 20% perturbation
+w2 <- c(0.5, 0.3, 0.2)
+perturbed_weights2 <- get_perturbed_weight_samples(w2, pert_by = 0.2, Nrep = 5,
+                                                    quietly = FALSE, tolerance = 0.01)
+cat("\nExample 2: Three unequal weights with +/-20% perturbation\n")
+print(perturbed_weights2)
+cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights2), 4), collapse = ", "), "\n"))
+
+# Example 3: Vector perturbation - different perturbation for each weight
+w3 <- c(0.4, 0.3, 0.2, 0.1)
+pert_by_vec <- c(0.1, 0.2, 0.3, 0.1)  # Different perturbation for each weight
+perturbed_weights3 <- get_perturbed_weight_samples(w3, pert_by = pert_by_vec,
+                                                    Nrep = 8, quietly = FALSE)
+cat("\nExample 3: Four weights with varying perturbation levels\n")
+print(perturbed_weights3)
+cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights3), 4), collapse = ", "), "\n"))
 

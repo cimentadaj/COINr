@@ -1510,3 +1510,108 @@ get_noisy_weights.data.frame <- function(w, noise_specs, Nrep, ...){
 
   return(wlist)
 }
+
+
+#' Generate samples of perturbed weights respecting requirement to sum to 1
+#'
+#' Given a vector of weights `w`, returns a matrix of `Nrep` rows where each row
+#' is `w` with a random uniform perturbation applied, as specified by `pert_by`. Uses
+#' a type of rejection sampling, with the requirement that weight sets must sum
+#' to 1 +/- `tolerance`.
+#'
+#' @param w Vector of numeric weights
+#' @param pert_by A positive number representing the fraction by which to perturb weights.
+#' E.g. setting to 0.5 will perturb weights +/- 50% of their nominal values.
+#' @param Nrep The number of weight sets to generate.
+#' @param tolerance The tolerance (see description).
+#' @param quietly Logical: if `FALSE` will also report the total number of weight
+#' draws.
+#'
+#' @return A matrix with `Nrep` rows, where each row is a weight sample.
+#' @export
+#'
+#' @examples
+#' # vector of four equal weights
+#' w <- c(0.25, 0.25, 0.25, 0.25)
+#'
+#' # perturb by +/-10%, generate 10 vectors of perturbed weights
+#' get_perturbed_weight_samples(w, pert_by = 0.1, Nrep = 10, quietly = FALSE)
+#'
+#'
+get_perturbed_weight_samples <- function(w, pert_by, Nrep, tolerance = 0.01, quietly = TRUE){
+
+
+  # Checks and prep ---------------------------------------------------------
+
+  stopifnot(is.numeric(pert_by),
+            is.numeric(w),
+            is.numeric(tolerance))
+
+  n_w <- length(w)
+
+  # repeat pert_by for all weights if it is length 1
+  if(length(pert_by) == 1){
+    if(n_w > 1){
+      pert_by <- rep(pert_by, n_w)
+    }
+  } else if (length(pert_by) != length(w)) {
+    stop("The length of pert_by is not equal to the length of w.")
+  }
+
+  # check no NA in w
+  if(any(is.na(w))){
+    stop("NA(s) in w - cannot compute peturbed weights")
+  }
+
+  # trivial output case with no perturbation (may be useful at some point)
+  if(all(pert_by == 0)){
+    return(matrix(w, Nrep, n_w))
+  }
+
+  if(n_w == 1){
+    stop("Cannot do uniform perturbation for a single weight.")
+  }
+
+  if(sum(pert_by > 0) < 2){
+    stop("Cannot do uniform perturbation for a weight group where only one weight is perturbed, minimum two weights must be perturbed.")
+  }
+
+
+  # Calc weights ------------------------------------------------------------
+
+  # normalise weights first
+  w <- w/sum(w)
+
+  # pre-build output matrix
+  w_out <- matrix(NA, Nrep, n_w)
+
+  row_index <- 1
+  n_attempts <- 0
+
+  # keep looping until matrix is full
+  while(row_index <= Nrep){
+
+    # candidate weights
+    w_test <- w + runif(n_w, -1, 1)*pert_by*w
+    w_test_sum <- sum(w_test)
+
+    within_precision <- (w_test_sum > (1-tolerance)) && (w_test_sum < (1+tolerance))
+
+    if(within_precision){
+      # add to output matrix and bump row index
+      w_out[row_index, ] <- w_test
+      row_index <- row_index + 1
+    }
+    # else will go back around for another loop.
+
+    n_attempts <- n_attempts + 1
+
+  }
+
+  if(!quietly){
+    message("Generated ", Nrep, " constrained weight samples based on ", n_attempts, " weight draws.")
+  }
+
+  w_out
+
+}
