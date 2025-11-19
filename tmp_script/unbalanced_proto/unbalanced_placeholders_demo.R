@@ -138,3 +138,7 @@ cat(sprintf("Tested %d combinations, found %d successful\n",
             nrow(combo_res$Combinations$SubA), nrow(combo_res$Successful$SubA)))
 cat("Successful combinations meet criteria: PCA ≥ 0.65, eigenvalues < 2, Cronbach's α ≥ 0.7\n")
 
+cat("\n=== GET ICODES IN GROUP EXAMPLE ===\n")
+cat("Find all indicators (level 1) within SubA:\n")
+print(get_iCodes_in_group(coin, iCode_group = "SubA", at_level = 3))
+

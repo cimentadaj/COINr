@@ -218,6 +218,73 @@ ucodes_to_unames <- function(coin, uCodes){
 }
 
 
+# Get level of an indicator code
+#
+# Internal helper function that returns the level of a given iCode in the framework
+# hierarchy. Used by get_iCodes_in_group().
+#
+# @param coin A coin
+# @param iCode An indicator code present in the coin
+#
+# @return Integer representing the level of the iCode
+#
+# @keywords internal
+get_iCode_level <- function(coin, iCode){
+
+  check_coin_input(coin)
+
+  imeta <- coin[["Meta"]][["Ind"]]
+  stopifnot(iCode %in% imeta$iCode)
+
+  imeta[["Level"]][imeta[["iCode"]] == iCode]
+
+}
+
+
+#' Find children or parents of an iCode
+#'
+#' Finds the children or parents of any iCode `iCode_group` at a specified level `at_level`.
+#' This is useful for identifying which indicators belong to a particular pillar or sub-index,
+#' or for finding the parent groups of a set of indicators.
+#'
+#' The function works by using the hierarchical structure stored in `coin$Meta$Lineage` to
+#' identify all indicators that share the same parent at the specified levels. It works with
+#' both balanced and unbalanced frameworks.
+#'
+#' @param coin A coin
+#' @param iCode_group An iCode to find children/parents for
+#' @param at_level Level of framework to identify children/parents at
+#'
+#' @return Character vector of iCodes at the specified level that are children/parents of `iCode_group`
+#'
+#' @export
+#'
+#' @examples
+#' # Build example coin
+#' coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)
+#'
+#' # Find all level 2 indicators (pillars) within the "Conn" sub-index (level 3)
+#' get_iCodes_in_group(coin, iCode_group = "Conn", at_level = 2)
+#'
+#' # Find all level 1 indicators within the "Political" pillar
+#' get_iCodes_in_group(coin, iCode_group = "Political", at_level = 1)
+get_iCodes_in_group <- function(coin, iCode_group, at_level){
+
+  check_coin_input(coin)
+
+  # lineage is ordered by level
+  lin <- coin$Meta$Lineage
+
+  # find level of iCode
+  icode_lev <- get_iCode_level(coin, iCode = iCode_group)
+
+  # output
+  lin[lin[[icode_lev]] == iCode_group, at_level] |>
+    unique()
+
+}
+
+
 # Splits data frame into numeric and non-numeric columns
 #
 # @param x A data frame with numeric and non-numeric columns.
