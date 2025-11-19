@@ -294,3 +294,186 @@ test_that("get_noisy_weights2", {
   expect_length(noisy_wts3, 5)
 
 })
+
+
+test_that("get_sensitivity2_basic_functionality", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # test case where we vary winmax
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:5,
+                   Type = "discrete")
+
+  # create specification list
+  SA_specs <- list(Winmax = l_winmax)
+
+  # run sensitivity analysis with progress bar
+  SA_res_bar <- get_sensitivity2(coin, SA_specs = SA_specs, N = 10, SA_type = "UA",
+                                 dset = "Aggregated", iCode = "Index", quietly = TRUE,
+                                 report_progress = "bar", monitor_convergence = FALSE)
+
+  # test general format of output (when monitor_convergence = FALSE, est_err will be NULL)
+  expect_true("Scores" %in% names(SA_res_bar))
+  expect_true("Ranks" %in% names(SA_res_bar))
+  expect_true("RankStats" %in% names(SA_res_bar))
+  expect_true("Para" %in% names(SA_res_bar))
+  expect_true("Nominal" %in% names(SA_res_bar))
+  expect_equal(ncol(SA_res_bar$Scores), 10+2)
+  expect_type(SA_res_bar$Para, "list")
+  expect_equal(length(SA_res_bar$Para), 1)
+
+  # run again with text progress
+  SA_res_text <- get_sensitivity2(coin, SA_specs = SA_specs, N = 10, SA_type = "UA",
+                                  dset = "Aggregated", iCode = "Index", quietly = TRUE,
+                                  report_progress = "text", monitor_convergence = FALSE)
+
+  # results should be similar (structure-wise)
+  expect_setequal(names(SA_res_text), names(SA_res_bar))
+
+})
+
+
+test_that("get_sensitivity2_convergence_monitoring", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # test case where we vary winmax
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:5,
+                   Type = "discrete")
+
+  SA_specs <- list(Winmax = l_winmax)
+
+  # run with convergence monitoring
+  SA_res <- get_sensitivity2(coin, SA_specs = SA_specs, N = 20, SA_type = "UA",
+                             dset = "Aggregated", iCode = "Index", quietly = TRUE,
+                             monitor_convergence = TRUE)
+
+  # check that est_err is present and has values at every 5th iteration
+  expect_true("est_err" %in% names(SA_res))
+  expect_type(SA_res$est_err, "double")
+
+  # check that est_err has values at positions 5, 10, 15, 20
+  expect_false(is.na(SA_res$est_err[5]))
+  expect_false(is.na(SA_res$est_err[10]))
+  expect_false(is.na(SA_res$est_err[15]))
+  expect_false(is.na(SA_res$est_err[20]))
+
+  # test plot_convergence function
+  expect_silent(plot_convergence(SA_res))
+
+})
+
+
+test_that("get_sensitivity2_early_stopping", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # test case where we vary winmax with limited alternatives (quick convergence)
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:3,
+                   Type = "discrete")
+
+  SA_specs <- list(Winmax = l_winmax)
+
+  # run with early stopping - set very high convergence threshold so it should stop early
+  SA_res <- get_sensitivity2(coin, SA_specs = SA_specs, N = 50, SA_type = "UA",
+                             dset = "Aggregated", iCode = "Index", quietly = TRUE,
+                             monitor_convergence = TRUE, converge_on = 0.5)
+
+  # check that the function stopped early - est_err should be shorter than 50
+  expect_true(length(SA_res$est_err) < 50)
+
+  # check that the last non-NA value is < 0.5
+  last_err <- SA_res$est_err[!is.na(SA_res$est_err)]
+  expect_true(last_err[length(last_err)] < 0.5)
+
+})
+
+
+test_that("get_sensitivity2_sensitivity_analysis", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # create two parameters to vary
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:5,
+                   Type = "discrete")
+
+  norm_alts <- list(
+    list(f_n = "n_minmax", f_n_para = list(c(1,100))),
+    list(f_n = "n_zscore", f_n_para = list(c(10,2)))
+  )
+
+  l_norm <- list(Address = "$Log$Normalise$global_specs",
+                 Distribution = norm_alts,
+                 Type = "discrete")
+
+  SA_specs <- list(
+    Winmax = l_winmax,
+    Normalisation = l_norm
+  )
+
+  # run sensitivity analysis (SA_type = "SA")
+  SA_res <- get_sensitivity2(coin, SA_specs = SA_specs, N = 15, SA_type = "SA",
+                             dset = "Aggregated", iCode = "Index", Nboot = 50,
+                             quietly = TRUE, monitor_convergence = FALSE)
+
+  # test general format of output (when monitor_convergence = FALSE, est_err will be NULL)
+  expect_true("Scores" %in% names(SA_res))
+  expect_true("Ranks" %in% names(SA_res))
+  expect_true("RankStats" %in% names(SA_res))
+  expect_true("Para" %in% names(SA_res))
+  expect_true("Sensitivity" %in% names(SA_res))
+  expect_true("Nominal" %in% names(SA_res))
+
+  # check sensitivity indices are present
+  expect_true("Si" %in% names(SA_res$Sensitivity))
+  expect_true("STi" %in% names(SA_res$Sensitivity))
+  expect_equal(nrow(SA_res$Sensitivity), 2)
+
+  # check bootstrap confidence intervals are present
+  expect_true("Si_q5" %in% names(SA_res$Sensitivity))
+  expect_true("Si_q95" %in% names(SA_res$Sensitivity))
+  expect_true("STi_q5" %in% names(SA_res$Sensitivity))
+  expect_true("STi_q95" %in% names(SA_res$Sensitivity))
+
+})
+
+
+test_that("get_sensitivity2_returns_same_structure_as_get_sensitivity", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # Simple specs
+  l_winmax <- list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                   Distribution = 1:5,
+                   Type = "discrete")
+
+  SA_specs <- list(Winmax = l_winmax)
+
+  # Run both versions
+  set.seed(123)
+  SA_res1 <- get_sensitivity(coin, SA_specs = SA_specs, N = 10, SA_type = "UA",
+                             dset = "Aggregated", iCode = "Index", quietly = TRUE)
+
+  set.seed(123)
+  SA_res2 <- get_sensitivity2(coin, SA_specs = SA_specs, N = 10, SA_type = "UA",
+                              dset = "Aggregated", iCode = "Index", quietly = TRUE,
+                              monitor_convergence = FALSE)
+
+  # Check that core output structures match (excluding est_err which is only in get_sensitivity2)
+  expect_setequal(names(SA_res1), names(SA_res2)[names(SA_res2) != "est_err"])
+
+  # Check column counts match
+  expect_equal(ncol(SA_res1$Scores), ncol(SA_res2$Scores))
+  expect_equal(ncol(SA_res1$Ranks), ncol(SA_res2$Ranks))
+  expect_equal(nrow(SA_res1$RankStats), nrow(SA_res2$RankStats))
+
+})

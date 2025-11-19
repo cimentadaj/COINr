@@ -214,3 +214,27 @@ if(length(level2_codes) > 0) {
   print(noisy_wts_groups[[1]][noisy_wts_groups[[1]]$Level == 2, ])
 }
 
+
+cat("\n=== get_sensitivity2() EXAMPLE ===\n")
+# Demonstrates new features: progress bar, convergence monitoring, early stopping
+
+sa_specs_compare <- list(
+  Winmax = list(
+    Address = "$Log$Treat$global_specs$f1_para$winmax",
+    Distribution = 1:3,
+    Type = "discrete"
+  )
+)
+
+cat("\nRunning get_sensitivity2() with convergence monitoring and early stopping...\n")
+set.seed(42)
+SA_res_v2 <- get_sensitivity2(coin, SA_specs = sa_specs_compare, N = 20, SA_type = "UA",
+                              dset = "Aggregated", iCode = "Index", quietly = FALSE,
+                              report_progress = "bar", monitor_convergence = TRUE,
+                              converge_on = 0.05)
+
+cat("\nConvergence info:\n")
+cat("  Iterations completed:", sum(!is.na(SA_res_v2$est_err)), "\n")
+cat("  Final error:", round(tail(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)], 1)*100, 2), "%\n")
+if(!is.null(SA_res_v2$est_err)) plot_convergence(SA_res_v2)
+
