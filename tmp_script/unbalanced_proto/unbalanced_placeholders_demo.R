@@ -112,3 +112,20 @@ SA_res <- get_sensitivity(coin, SA_specs = sa_specs, N = 10, SA_type = "SA",
 
 print(plot_uncertainty(SA_res, order_by = "nominal"))
 print(plot_sensitivity(SA_res, ptype = "bar"))
+
+cat("\n=== DEA AGGREGATION EXAMPLE ===\n")
+# Example 1: Aggregate using DEA in the final level
+coin_dea <- Aggregate(coin, dset = "Normalised",
+                      f_ag = c("a_amean", "a_dea"),
+                      by_df = c(FALSE, TRUE),
+                      w = list(NULL, "none"))
+cat("\nDEA Aggregation Results (first 5 units):\n")
+print(head(get_results(coin_dea, dset = "Aggregated", tab_type = "Summ"), 5))
+
+# Example 2: Re-aggregate existing coin with DEA using get_DEA()
+cat("\n\nRe-aggregating with get_DEA() and weight restrictions (contribution bounds 10%-75%):\n")
+dea_result <- get_DEA(coin, wr_type = 2, wr_bounds = c(0.10, 0.75))
+cat("DEA scores (first 5 units):\n")
+print(head(dea_result$DEA_CI[c("uCode", "Dea")], 5))
+cat("\nNormalized DEA weights (average across all units):\n")
+print(dea_result$norm.weights)
