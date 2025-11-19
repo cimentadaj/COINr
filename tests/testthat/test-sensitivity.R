@@ -227,3 +227,70 @@ test_that("get_noisy_weights.unbalanced_coin strips placeholders", {
 
   expect_equal(noisy, noisy_bal)
 })
+
+test_that("get_noisy_weights2", {
+
+  # get a set of nominal weights
+  imeta <- ASEM_iMeta
+  col_names <- c("iCode", "Weight", "Level", "Parent")
+  w_nom <- imeta[imeta$Type %in% c("Indicator", "Aggregate"), col_names]
+
+  # test basic perturbation
+  noise_specs = data.frame(Level = c(2,3), NoiseFactor = c(0.25, 0.5))
+  noisy_wts <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs, Nrep = 10)
+
+  expect_type(noisy_wts, "list")
+  expect_length(noisy_wts, 10)
+
+  # check data frame
+  l_type <- sapply(noisy_wts, class)
+  expect_true(all(l_type == "data.frame"))
+
+  # check col names
+  correct_cols <- sapply(noisy_wts, function(X) {
+    all(col_names %in% names(X))
+  })
+  expect_true(all(correct_cols))
+
+  # check weight perturbation
+  # just take one data frame here...
+  w <- noisy_wts[[1]]
+
+  # expect equal weights at level 1 (no perturbation)
+  l2_groups <- imeta$iCode[which(imeta$Level == 2)] |> unique()
+  for(icode in l2_groups){
+    icodes <- imeta$iCode[which(imeta$Parent == icode)]
+    expect_equal(w$Weight[w$iCode %in% icodes], rep(1/length(icodes), length(icodes)))
+  }
+
+  # expect 25% perturbation at level 2
+  l3_groups <- imeta$iCode[which(imeta$Level == 3)] |> unique()
+  for(icode in l3_groups){
+    icodes <- imeta$iCode[which(imeta$Parent == icode)]
+    wts <- w$Weight[w$iCode %in% icodes]
+    wnom <- 1/length(wts)
+    expect_true(all(wts >= wnom*0.75))
+    expect_true(all(wts <= wnom*1.25))
+  }
+
+  # expect 50% perturbation at level 3
+  icodes <- l3_groups
+  wts <- w$Weight[w$iCode %in% icodes]
+  wnom <- 1/length(wts)
+  expect_true(all(wts >= wnom*0.5))
+  expect_true(all(wts <= wnom*1.5))
+
+  # Test individual_specs override
+  individual_specs <- list(Physical = 1.0, P2P = 0.75)
+  noisy_wts2 <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+                                   individual_specs = individual_specs, Nrep = 5)
+  expect_type(noisy_wts2, "list")
+  expect_length(noisy_wts2, 5)
+
+  # Test correct_uniform_dist mode
+  noisy_wts3 <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+                                   Nrep = 5, correct_uniform_dist = TRUE, uniform_tol = 0.01)
+  expect_type(noisy_wts3, "list")
+  expect_length(noisy_wts3, 5)
+
+})

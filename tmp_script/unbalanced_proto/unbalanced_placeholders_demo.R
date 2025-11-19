@@ -168,3 +168,49 @@ cat("\nExample 3: Four weights with varying perturbation levels\n")
 print(perturbed_weights3)
 cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights3), 4), collapse = ", "), "\n"))
 
+cat("\n=== GET NOISY WEIGHTS2 EXAMPLE ===\n")
+# Get nominal weights from the coin object
+w_nom <- coin$Meta$Ind[coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"),
+                       c("iCode", "Weight", "Level", "Parent")]
+
+# Example 1: Basic noise_specs only (25% noise at levels 2 and 3)
+noise_specs <- data.frame(Level = c(2, 3), NoiseFactor = c(0.25, 0.25))
+noisy_wts_basic <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs, Nrep = 3)
+cat("\nExample 1: Basic noise_specs (25% at levels 2 and 3)\n")
+cat("Number of replications:", length(noisy_wts_basic), "\n")
+cat("First replication (first 5 rows):\n")
+print(head(noisy_wts_basic[[1]], 5))
+
+# Example 2: Individual specs override (specific noise for individual components)
+individual_specs <- list(SubA = 0.5, IndA1 = 0.75)
+noisy_wts_individual <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+                                            individual_specs = individual_specs, Nrep = 3)
+cat("\nExample 2: With individual_specs (SubA=50%, IndA1=75% override general specs)\n")
+cat("Number of replications:", length(noisy_wts_individual), "\n")
+cat("Weights for SubA and IndA1 in first replication:\n")
+print(noisy_wts_individual[[1]][noisy_wts_individual[[1]]$iCode %in% c("SubA", "IndA1"), ])
+
+# Example 3: Uniform distribution mode (correct_uniform_dist = TRUE)
+noisy_wts_uniform <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+                                        Nrep = 3, correct_uniform_dist = TRUE, uniform_tol = 0.01)
+cat("\nExample 3: Uniform distribution mode (using rejection sampling)\n")
+cat("Number of replications:", length(noisy_wts_uniform), "\n")
+cat("First replication (first 5 rows):\n")
+print(head(noisy_wts_uniform[[1]], 5))
+
+# Example 4: Using get_iCodes_in_group for group-specific noise
+# Apply different noise to different groups
+level2_codes <- coin$Meta$Ind$iCode[coin$Meta$Ind$Level == 2 &
+                                     coin$Meta$Ind$Type == "Aggregate" &
+                                     !coin$Meta$Ind$IsPlaceholder %in% TRUE]
+# Create individual specs for level 2 aggregates with 50% noise
+if(length(level2_codes) > 0) {
+  group_specs <- setNames(as.list(rep(0.5, length(level2_codes))), level2_codes)
+  noisy_wts_groups <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+                                          individual_specs = group_specs, Nrep = 3)
+  cat("\nExample 4: Group-specific noise (50% for all level 2 aggregates)\n")
+  cat("Number of replications:", length(noisy_wts_groups), "\n")
+  cat("Level 2 weights in first replication:\n")
+  print(noisy_wts_groups[[1]][noisy_wts_groups[[1]]$Level == 2, ])
+}
+

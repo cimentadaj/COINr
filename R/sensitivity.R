@@ -1615,3 +1615,204 @@ get_perturbed_weight_samples <- function(w, pert_by, Nrep, tolerance = 0.01, qui
   w_out
 
 }
+
+
+#' Noisy replications of weights
+#'
+#' Given a data frame of weights, this function returns multiple replicates of the weights, with added
+#' noise. This is intended for use in uncertainty and sensitivity analysis. *NOTE:* this function is a modified
+#' version of [COINr::get_noisy_weights()].
+#'
+#' Weights are expected to be in a data frame format with columns `Level`, `iCode`, `Weight` and `Parent` as
+#' used in `iMeta`.
+#'
+#' Noise is added using two arguments. The first is the `noise_specs` argument, which is specified by a data frame with columns
+#' `Level` and `NoiseFactor`. The aggregation level refers to number of the aggregation level to target
+#' while the `NoiseFactor` refers to the size of the perturbation. If e.g. a row is `Level = 1` and
+#' `NoiseFactor = 0.2`, this will allow the weights in aggregation level 1 to deviate by +/- 20% of their
+#' nominal values (the values in `w`). Note that due to rescaling to sum to 1, this tends to result in
+#' truncated normal distributions for each weight, unless `correct_uniform_dist = TRUE` (see below).
+#'
+#' If you need more control over the noise applied to individual indicators, use the `individual_specs` argument.
+#' Any noise specifications here will override those in `noise_specs` if they are specified in both. Keep in
+#' mind that if `correct_uniform_dist = TRUE`, it is not possible to perturb only one weight within a group. This
+#' is because it is impossible to vary a single value while keeping the sum near 1.
+#'
+#' Finally, the `correct_uniform_dist` argument allows to switch to use the `get_perturbed_weight_sample()` function
+#' which returns weight samples with more uniform distributions (as opposed to the truncated normal distribution as
+#' mentioned previously).
+#'
+#' See the examples vignette for some discussion and demos on the distributions of weights.
+#'
+#' @param w A data frame of weights, in the format found in `.$Meta$Weights`.
+#' @param noise_specs a data frame with columns:
+#'  * `Level`: The aggregation level to apply noise to
+#'  * `NoiseFactor`: The size of the perturbation: setting e.g. 0.2 perturbs by +/- 20% of nominal values.
+#' @param Nrep The number of weight replications to generate.
+#' @param individual_specs Optional list for specifying specific noise factors on individual indicators. A named
+#' list where names are the iCodes of indicators/aggregates, and the entries are the noise factors. This overrides
+#' the `noise_specs` specifications for those indicators (if there were any).
+#' @param correct_uniform_dist Logical: if `TRUE`, calls `get_perturbed_weight_sample()` to generate more-uniform weight
+#' samples via rejection sampling.
+#' @param uniform_tol Tolerance parameter passed to `get_perturbed_weight_sample()`.
+#'
+#' @examples
+#' # build example coin
+#' coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)
+#'
+#' # get nominal weights
+#' w_nom <- coin$Meta$Ind[coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"),
+#'                        c("iCode", "Weight", "Level", "Parent")]
+#'
+#' # build data frame specifying the levels to apply the noise at
+#' # here we vary at levels 2 and 3
+#' noise_specs = data.frame(Level = c(2,3),
+#'                          NoiseFactor = c(0.25, 0.25))
+#'
+#' # get 100 replications
+#' noisy_wts <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs, Nrep = 100)
+#'
+#' # examine one of the noisy weight sets, last few rows
+#' tail(noisy_wts[[1]])
+#'
+#' ## Example with individual specs for individual components
+#'
+#' # specify for two components
+#' individual_specs <- list(Physical = 1, P2P = 0.75)
+#' # run
+#' noisy_wts <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+#'                                 individual_specs = individual_specs, Nrep = 100)
+#' # Note that the individual specs override the general specs.
+#'
+#' ## Example specifying on whole groups (with helper function)
+#' # We want 25% noise on pillars in connectivity group,
+#' # and 50% noise on pillars in sustainability group.
+#'
+#' # First find iCodes in those groups
+#' p_conn <- get_iCodes_in_group(coin, "Conn", 2)
+#' p_sust <- get_iCodes_in_group(coin, "Sust", 2)
+#'
+#' # make list: the values first
+#' individual_specs <- c(rep(0.25, length(p_conn)), rep(0.5, length(p_sust))) |>
+#'   as.list()
+#' # add the names
+#' names(individual_specs) <- c(p_conn, p_sust)
+#'
+#' # now run...
+#' noisy_wts <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
+#'                                 individual_specs = individual_specs, Nrep = 100)
+#'
+#' @return A list of `Nrep` sets of weights (data frames).
+#'
+#' @seealso
+#' * [get_sensitivity()] Perform global sensitivity or uncertainty analysis on a COIN
+#'
+#' @export
+get_noisy_weights2 <- function(w, noise_specs = NULL, individual_specs = NULL, Nrep,
+                               correct_uniform_dist = FALSE, uniform_tol = 0.01){
+
+
+  # Checks ------------------------------------------------------------------
+
+  stopifnot(is.data.frame(noise_specs))
+
+  required_cols <- c("iCode", "Level", "Weight")
+
+  if(any(is.na(w[required_cols]))){
+    stop("NAs found in w: NAs are not allowed.")
+  }
+
+  if(any(required_cols %nin% names(w))){
+    stop("One or more required columns (iCode, Level, Weight) not found in w.")
+  }
+
+  if(!is.null(noise_specs)){
+    if (length(unique(noise_specs$Level)) < nrow(noise_specs)){
+      stop("Looks like you have duplicate Level values in the noise_specs df?")
+    }
+  }
+
+  if(is.null(noise_specs) && is.null(individual_specs)){
+    stop("At least one of noise_specs or individual_specs must be defined.")
+  }
+
+  if("Parent" %nin% names(w)){
+    stop("This function requires the 'Parent' column to present in the weights data frame (this can be found in iMeta).")
+  }
+
+
+  # Build single specs table ------------------------------------------------
+  # Here we combine the specs from noise_specs and individual_specs
+
+  # We use the w data frame. The pert_by col will specify the noise to apply
+  # to each weight.
+  w$pert_by <- 0
+
+  # first, add by-level noise specs
+  if(!is.null(noise_specs)){
+    stopifnot(all(c("Level", "NoiseFactor") %in% names(noise_specs)))
+    for(irow in 1:nrow(noise_specs)){
+      w$pert_by[w$Level == noise_specs$Level[irow]] <- noise_specs$NoiseFactor[irow]
+    }
+  }
+
+  # then add individual noise specs
+  if(!is.null(individual_specs)){
+    stopifnot(all(names(individual_specs) %in% w$iCode))
+    w$pert_by[match(names(individual_specs), w$iCode)] <- as.numeric(individual_specs)
+  }
+
+  # make list for weights
+  wlist <- vector(mode = "list", length = Nrep)
+
+  for (irep in 1:Nrep){
+
+    # Since weights have potentially be passed in groups, the following is organised
+    # by weight-groups.
+
+    wcopy <- w
+    w_notNA <- w[!is.na(w$Parent), ]
+
+    l_w <- split(w_notNA, w_notNA$Parent)
+
+    l_w <- lapply(l_w, function(w_grp){
+
+      # skip if group is all zero-perturbation (but normalise to sum 1)
+      if(all(w_grp$pert_by == 0)){
+        w_grp$Weight <- w_grp$Weight/sum(w_grp$Weight)
+        return(w_grp)
+      }
+
+      if(correct_uniform_dist){
+
+        # call uniform weight function
+        w_grp$Weight <- get_perturbed_weight_samples(w_grp$Weight, pert_by = w_grp$pert_by,
+                                                     Nrep = 1, tolerance = uniform_tol, quietly = TRUE) |>
+          as.numeric()
+
+      } else {
+
+        # vector of noise: random number in [0,1] times 2, -1. This interprets NoiseFactor as
+        # a +/-% deviation.
+        wts <- w_grp$Weight
+        wnoise <- (stats::runif(length(wts))*2 - 1) * w_grp$pert_by * wts
+        # add noise to weights and store
+        wts <- wts + wnoise
+        w_grp$Weight <- wts/sum(wts)
+
+      }
+
+      w_grp
+
+    })
+
+    # reshape and add to list
+    wrep <- unsplit(l_w, w_notNA$Parent)
+    wcopy[!is.na(w$Parent), ] <- wrep
+    wlist[[irep]] <- wcopy
+
+  }
+
+  # output
+  wlist
+}
