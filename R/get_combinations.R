@@ -160,7 +160,7 @@ get_combinations.coin <- function(coin, dset, dimension = NULL, f_ag = 'a_amean'
 
   }
 
-  check_number <- function(x) all(sapply(x, function(x) is.numeric(x) && x%%1 == 0))
+  check_number <- function(x) is.numeric(x) && length(x) >= 1 && !anyNA(x)
 
   # Internal cronbach_alpha calculation (kept for consistency with COINauditr)
 
