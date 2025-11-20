@@ -67,3 +67,77 @@ baseline_time <- system.time({
 })
 
 print(baseline_time)
+
+cat("\n=== More Complete Sensitivity Test with Multiple Steps ===\n")
+
+# Define more comprehensive sensitivity specs covering multiple pipeline steps
+# 1. Imputation alternatives
+imputation_spec <- list(
+  Address = "$Log$Impute$f_i",
+  Distribution = c("i_mean", "i_median", "i_mean_grp"),
+  Type = "discrete"
+)
+
+# 2. Winsorization alternatives
+winmax_spec_comprehensive <- list(
+  Address = "$Log$Treat$global_specs$f1_para$winmax",
+  Distribution = c(3, 5, 7),
+  Type = "discrete"
+)
+
+# 3. Normalisation alternatives (different methods)
+normalisation_spec_comprehensive <- list(
+  Address = "$Log$Normalise$global_specs",
+  Distribution = list(
+    list(f_n = "n_minmax", f_n_para = list(c(0, 100))),
+    list(f_n = "n_zscore"),
+    list(f_n = "n_borda")
+  ),
+  Type = "discrete"
+)
+
+# 4. Aggregation alternatives
+aggregation_spec <- list(
+  Address = "$Log$Aggregate$f_ag",
+  Distribution = c("a_amean", "a_gmean"),
+  Type = "discrete"
+)
+
+# Combine all specifications
+SA_specs_comprehensive <- list(
+  Imputation = imputation_spec,
+  Winmax = winmax_spec_comprehensive,
+  Normalisation = normalisation_spec_comprehensive,
+  Aggregation = aggregation_spec
+)
+
+set.seed(2024)
+
+# Time the comprehensive sensitivity analysis
+comprehensive_time <- system.time({
+  suppressMessages({
+    comprehensive_res <- get_sensitivity(
+      coin_large,
+      SA_specs = SA_specs_comprehensive,
+      N = 50,  # More iterations to test different permutations
+      SA_type = "SA",
+      dset = "Aggregated",
+      iCode = "Index",
+      quietly = TRUE
+    )
+  })
+})
+
+cat("\nComprehensive Sensitivity Test Results:\n")
+cat(sprintf("  Number of specifications: %d\n", length(SA_specs_comprehensive)))
+cat(sprintf("  Number of iterations: %d\n", 50))
+cat(sprintf("  Elapsed time: %.2f seconds\n", comprehensive_time["elapsed"]))
+cat(sprintf("  User time: %.2f seconds\n", comprehensive_time["user.self"]))
+cat(sprintf("  System time: %.2f seconds\n", comprehensive_time["sys.self"]))
+
+# Summary of results
+if(!is.null(comprehensive_res) && !is.null(comprehensive_res$Scores)){
+  cat(sprintf("  Result dimensions: %d x %d\n", nrow(comprehensive_res$Scores), ncol(comprehensive_res$Scores)))
+}
+
+print(comprehensive_time)
