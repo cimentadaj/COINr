@@ -238,3 +238,25 @@ cat("  Iterations completed:", sum(!is.na(SA_res_v2$est_err)), "\n")
 cat("  Final error:", round(tail(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)], 1)*100, 2), "%\n")
 if(!is.null(SA_res_v2$est_err)) plot_convergence(SA_res_v2)
 
+cat("\n=== get_statistics() EXAMPLE ===\n")
+# Demonstrates multivariate analysis: PCA, rotated PCA, and Cronbach's alpha
+
+cat("\nRunning multivariate analysis for SubA dimension (level 2)...\n")
+# Note: Only analyzing SubA which has real indicators (IndA1, IndA2)
+# AggSolo has only a placeholder child, so we skip it
+multivar_stats <- get_statistics(coin, dset = "Normalised", level = 2, warnings = FALSE)
+
+cat("\nStatistics Summary:\n")
+print(multivar_stats$Statistics)
+
+cat("\nKey metrics explained:\n")
+cat("  - PCA_variance: Proportion of variance explained by first principal component\n")
+cat("  - cronbach: Cronbach's alpha for internal consistency (>0.7 is good)\n")
+cat("  - eigen_dim: Number of eigenvalues > 1 (suggests dimensionality)\n")
+cat("  - low_corr_pairs: Number of indicator pairs with correlation < 0.3\n")
+
+if(length(multivar_stats$Correlations) > 0) {
+  cat("\nCorrelation matrix for first dimension:\n")
+  print(multivar_stats$Correlations[[1]]$All)
+}
+
