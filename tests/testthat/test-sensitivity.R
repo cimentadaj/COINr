@@ -477,3 +477,225 @@ test_that("get_sensitivity2_returns_same_structure_as_get_sensitivity", {
   expect_equal(nrow(SA_res1$RankStats), nrow(SA_res2$RankStats))
 
 })
+
+
+# Tests for pipeline validation functions
+test_that("get_sensitivity_pipeline_works", {
+
+  # Build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # Create SA specs
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    ),
+    Normalisation = list(
+      Address = "$Log$Normalise$global_specs$f_n",
+      Distribution = c("n_minmax", "n_zscore"),
+      Type = "discrete"
+    )
+  )
+
+  # Test basic pipeline extraction
+  pipeline <- get_sensitivity_pipeline(coin, SA_specs, validate = TRUE)
+
+  # Check output structure
+  expect_s3_class(pipeline, "sa_pipeline")
+  expect_s3_class(pipeline, "data.frame")
+  expect_true(nrow(pipeline) > 0)
+
+  # Check required columns exist
+  required_cols <- c("step_id", "order", "input_dset", "output_dset",
+                     "log_args", "spec_args", "modified",
+                     "has_issues", "issue_type", "issue_severity", "issue_message")
+  expect_true(all(required_cols %in% names(pipeline)))
+
+  # Check that some steps are marked as modified
+  expect_true(any(pipeline$modified))
+
+  # For valid pipeline, should have no issues
+  expect_false(any(pipeline$has_issues))
+
+})
+
+
+test_that("get_sensitivity_pipeline_focus_modes", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  # Test focus = "all"
+  pipeline_all <- get_sensitivity_pipeline(coin, SA_specs, focus = "all")
+  expect_true(nrow(pipeline_all) > 0)
+
+  # Test focus = "modified"
+  pipeline_modified <- get_sensitivity_pipeline(coin, SA_specs, focus = "modified")
+  expect_true(all(pipeline_modified$modified))
+  expect_true(nrow(pipeline_modified) < nrow(pipeline_all))
+
+  # Test focus = "issues" (should have none for valid pipeline)
+  expect_message(
+    pipeline_issues <- get_sensitivity_pipeline(coin, SA_specs, focus = "issues"),
+    "No pipeline issues detected"
+  )
+  expect_equal(nrow(pipeline_issues), 0)
+
+})
+
+
+test_that("pipeline_validation_detects_dataset_mismatch", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  # Create problematic log where Impute reads from wrong dataset
+  coin_bad <- coin
+  coin_bad$Log$Impute$dset <- "Normalised"  # Should be "Denominated"
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  # Get pipeline with validation
+  pipeline <- get_sensitivity_pipeline(coin_bad, SA_specs, validate = TRUE)
+
+  # Should detect issues
+  expect_true(any(pipeline$has_issues))
+
+  # Should have dataset_mismatch error
+  expect_true(any(pipeline$issue_type == "dataset_mismatch", na.rm = TRUE))
+  expect_true(any(pipeline$issue_severity == "error", na.rm = TRUE))
+
+})
+
+
+test_that("pipeline_validation_detects_data_overwriting", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  # Create problematic log where two steps write to same dataset
+  coin_bad <- coin
+  coin_bad$Log$Normalise$write_to <- "Treated"  # Overwrites Treat output
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  # Get pipeline with validation
+  pipeline <- get_sensitivity_pipeline(coin_bad, SA_specs, validate = TRUE)
+
+  # Should detect issues
+  expect_true(any(pipeline$has_issues))
+
+  # Should have data_overwrite warning
+  expect_true(any(pipeline$issue_type == "data_overwrite", na.rm = TRUE))
+  expect_true(any(pipeline$issue_severity == "warning", na.rm = TRUE))
+
+})
+
+
+test_that("get_pipeline_issues_works", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  # Create problematic log
+  coin_bad <- coin
+  coin_bad$Log$Impute$dset <- "Normalised"  # Wrong dataset
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  # Get only issues
+  issues <- get_pipeline_issues(coin_bad, SA_specs)
+
+  # Should have issues
+  expect_true(nrow(issues) > 0)
+  expect_true(all(issues$has_issues))
+
+  # For valid pipeline, should return empty
+  expect_message(
+    issues_valid <- get_pipeline_issues(coin, SA_specs),
+    "No pipeline issues detected"
+  )
+  expect_equal(nrow(issues_valid), 0)
+
+})
+
+
+test_that("plot_sensitivity_pipeline_refactored", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  # Test basic plotting
+  p <- plot_sensitivity_pipeline(coin, SA_specs, focus = "all", show_issues = TRUE)
+  expect_s3_class(p, "ggplot")
+
+  # Check pipeline_df is attached as attribute
+  expect_true(!is.null(attr(p, "pipeline_df")))
+  pipeline_df <- attr(p, "pipeline_df")
+  expect_true(is.data.frame(pipeline_df))
+
+  # Test focus = "modified"
+  p_modified <- plot_sensitivity_pipeline(coin, SA_specs, focus = "modified")
+  expect_s3_class(p_modified, "ggplot")
+
+  # Test with problematic pipeline
+  coin_bad <- coin
+  coin_bad$Log$Impute$dset <- "Normalised"
+
+  p_issues <- plot_sensitivity_pipeline(coin_bad, SA_specs, focus = "issues", show_issues = TRUE)
+  expect_s3_class(p_issues, "ggplot")
+
+})
+
+
+test_that("print.sa_pipeline_works", {
+
+  coin <- build_example_coin(quietly = TRUE)
+
+  SA_specs <- list(
+    Winmax = list(
+      Address = "$Log$Treat$global_specs$f1_para$winmax",
+      Distribution = 1:3,
+      Type = "discrete"
+    )
+  )
+
+  pipeline <- get_sensitivity_pipeline(coin, SA_specs)
+
+  # Test that print method works without errors
+  expect_output(print(pipeline), "Sensitivity Analysis Pipeline")
+  expect_output(print(pipeline), "Total steps:")
+  expect_output(print(pipeline), "Modified by SA_specs:")
+
+})

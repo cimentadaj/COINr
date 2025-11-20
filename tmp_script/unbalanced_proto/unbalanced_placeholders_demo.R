@@ -148,3 +148,30 @@ plot_convergence(SA_res_v2)
 # Multivariate statistics by dimension
 multivar_stats <- get_statistics(coin, dset = "Normalised", level = 2, warnings = FALSE)
 
+cat("\n\n=== PIPELINE VALIDATION EXAMPLES ===\n\n")
+
+# Create SA specs that modify some parameters
+sa_specs_valid <- list(
+  Winmax = list(
+    Address = "$Log$Treat$global_specs$f1_para$winmax",
+    Distribution = 1:3,
+    Type = "discrete"
+  ),
+  Normalisation = list(
+    Address = "$Log$Normalise$global_specs$f_n",
+    Distribution = c("n_minmax", "n_zscore", "n_rank"),
+    Type = "discrete"
+  )
+)
+
+# Get pipeline table with validation
+pipeline_valid <- get_sensitivity_pipeline(coin, sa_specs_valid, validate = TRUE)
+print(pipeline_valid)
+
+# Get only modified steps
+cat("\nModified steps only:\n")
+pipeline_modified <- get_sensitivity_pipeline(coin, sa_specs_valid, focus = "modified")
+print(pipeline_modified)
+
+
+plot_sensitivity_pipeline(coin, sa_specs_valid)

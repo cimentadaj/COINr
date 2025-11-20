@@ -366,129 +366,43 @@ regen_edit <- function(l_para, addresses, coin, regen_from = NULL){
 #' @param coin A coin object.
 #' @param SA_specs A list of sensitivity specifications as supplied to
 #'   [get_sensitivity()].
-#' @param focus Either `"all"` (default) to show the full pipeline or
-#'   `"modified"` to keep only steps affected by the specifications.
+#' @param focus Either `"all"` (default) to show the full pipeline, `"modified"`
+#'   to keep only steps affected by the specifications, or `"issues"` to show
+#'   only steps with validation issues.
+#' @param show_issues Logical. If `TRUE` (default), adds visual indicators for
+#'   validation issues detected in the pipeline.
 #'
-#' @return A `ggplot` object.
+#' @return A `ggplot` object with the pipeline data frame attached as an
+#'   attribute (`attr(plot, "pipeline_df")`).
+#'
+#' @seealso [get_sensitivity_pipeline()] for table-based pipeline extraction
+#'   with validation.
 #'
 #' @export
 plot_sensitivity_pipeline <- function(coin, SA_specs,
-                                      focus = c("all", "modified")){
+                                      focus = c("all", "modified", "issues"),
+                                      show_issues = TRUE){
 
   focus <- match.arg(focus)
 
-  build_pipeline <- function(coin, SA_specs){
-    check_coin_input(coin)
-    stopifnot(is.list(SA_specs))
+  # Use new table-based approach
+  pipeline_df <- get_sensitivity_pipeline(coin, SA_specs,
+                                          validate = show_issues,
+                                          focus = focus)
 
-    log_entries <- .get_log_entries(coin)
-    if(is.null(log_entries)){
-      stop("No regeneration log found in the supplied coin.")
-    }
+  # Remove sa_pipeline class to access data frame directly
+  class(pipeline_df) <- "data.frame"
 
-    step_names <- names(log_entries)
-    step_names <- step_names[step_names != "can_regen"]
-
-    default_inputs <- c(
-      Denominate = "Raw",
-      Impute = "Denominated",
-      Screen = "Imputed",
-      Treat = "Screened",
-      Normalise = "Treated",
-      Aggregate = "Normalised"
-    )
-    default_outputs <- c(
-      new_coin = "Raw",
-      Denominate = "Denominated",
-      Impute = "Imputed",
-      Screen = "Screened",
-      Treat = "Treated",
-      Normalise = "Normalised",
-      Aggregate = "Aggregated"
-    )
-
-    spec_table <- .collect_spec_metadata(SA_specs)
-    ignored_specs <- spec_table$spec_id[is.na(spec_table$step_id)]
-    if(length(ignored_specs) > 0){
-      warning("Some SA_specs do not reference the coin log and are omitted: ",
-              paste(ignored_specs, collapse = ", "), call. = FALSE)
-    }
-    spec_table <- spec_table[!is.na(spec_table$step_id), , drop = FALSE]
-
-    rows <- vector("list", length(step_names))
-
-    for(ii in seq_along(step_names)){
-      step <- step_names[ii]
-      args <- log_entries[[step]]
-      if(!is.null(args$dset)) {
-        input <- .format_scalar(args$dset)
-      } else if(step %in% names(default_inputs)) {
-        input <- default_inputs[[step]]
-      } else {
-        input <- NA_character_
-      }
-      if(!is.null(args$write_to)) {
-        output <- .format_scalar(args$write_to)
-      } else if(step %in% names(default_outputs)) {
-        output <- default_outputs[[step]]
-      } else {
-        output <- NA_character_
-      }
-
-      log_parts <- character()
-      if(!is.null(args$dset)){
-        log_parts <- c(log_parts, paste0("dset = ", .format_scalar(args$dset)))
-      }
-      if(!is.null(args$write_to)){
-        log_parts <- c(log_parts, paste0("write_to = ", .format_scalar(args$write_to)))
-      }
-      log_args <- paste(log_parts, collapse = " | ")
-
-      step_specs <- spec_table[spec_table$step_id == step, , drop = FALSE]
-      spec_desc <- character()
-      if(nrow(step_specs) > 0){
-        for(jj in seq_len(nrow(step_specs))){
-          spec_row <- step_specs[jj, ]
-          log_value <- .extract_log_value(args, spec_row$path_tokens[[1]])
-          log_label <- if(is.null(log_value)) "NULL" else .format_scalar(log_value)
-          spec_label <- .format_distribution(spec_row$distribution[[1]], spec_row$dist_type)
-          path_label <- if(length(spec_row$path_tokens[[1]]) == 0){
-            "<entry>"
-          } else {
-            paste(spec_row$path_tokens[[1]], collapse = "$")
-          }
-          spec_desc <- c(
-            spec_desc,
-            paste0(
-              spec_row$spec_id, ": ", path_label,
-              " | log = ", log_label,
-              " | spec ", spec_row$dist_type, " = ", spec_label
-            )
-          )
-        }
-      }
-
-      rows[[ii]] <- data.frame(
-        step_id = step,
-        order = ii,
-        input_dset = ifelse(length(input), input, NA_character_),
-        output_dset = ifelse(length(output), output, NA_character_),
-        log_args = if(nchar(log_args) == 0) NA_character_ else log_args,
-        spec_args = if(length(spec_desc) == 0) NA_character_ else paste(spec_desc, collapse = "; "),
-        modified = nrow(step_specs) > 0,
-        stringsAsFactors = FALSE
-      )
-    }
-
-    do.call(rbind, rows)
-  }
-
-  pipeline_df <- build_pipeline(coin, SA_specs)
-
-  if(focus == "modified"){
-    pipeline_df <- pipeline_df[pipeline_df$modified, , drop = FALSE]
-    if(nrow(pipeline_df) == 0){
+  # Check if pipeline is empty after filtering
+  if(nrow(pipeline_df) == 0){
+    if(focus == "modified"){
       stop("No pipeline steps are targeted by the supplied SA_specs.")
+    } else if(focus == "issues"){
+      message("No pipeline issues detected. Showing full pipeline instead.")
+      pipeline_df <- get_sensitivity_pipeline(coin, SA_specs,
+                                              validate = show_issues,
+                                              focus = "all")
+      class(pipeline_df) <- "data.frame"
     }
   }
 
@@ -544,6 +458,19 @@ plot_sensitivity_pipeline <- function(coin, SA_specs,
 
   diff_df <- specs_df[specs_df$modified, , drop = FALSE]
 
+  # Create issues data frame for visual indicators
+  issues_df <- NULL
+  if (show_issues && "has_issues" %in% names(pipeline_df) && any(pipeline_df$has_issues)) {
+    issues_df <- data.frame(
+      x = pipeline_df$x[pipeline_df$has_issues],
+      y = 1,
+      severity = pipeline_df$issue_severity[pipeline_df$has_issues],
+      message = pipeline_df$issue_message[pipeline_df$has_issues],
+      stringsAsFactors = FALSE
+    )
+    issues_df$label <- ifelse(issues_df$severity == "error", "\u2716", "\u26A0")  # X mark or warning sign
+  }
+
   p <- ggplot2::ggplot() +
     (if(!is.null(flow_df)) ggplot2::geom_segment(data = flow_df,
                           ggplot2::aes(x = x, xend = xend, y = 1, yend = 1),
@@ -562,6 +489,11 @@ plot_sensitivity_pipeline <- function(coin, SA_specs,
     ggplot2::geom_segment(data = diff_df,
                           ggplot2::aes(x = x, xend = x, y = 1, yend = 0),
                           colour = "#fb6a4a", linewidth = 0.6, linetype = "dashed") +
+    # Add issue indicators if present
+    (if(!is.null(issues_df) && nrow(issues_df) > 0)
+      ggplot2::geom_text(data = issues_df,
+                        ggplot2::aes(x = .data[["x"]] + 0.25, y = .data[["y"]] + 0.05, label = .data[["label"]]),
+                        size = 5, colour = "#d7191c", fontface = "bold") else NULL) +
     ggplot2::geom_text(data = defaults_df,
                        ggplot2::aes(x = x, y = y + 0.12, label = step_id),
                        fontface = "bold", size = 3.8, vjust = 0) +
@@ -592,9 +524,414 @@ plot_sensitivity_pipeline <- function(coin, SA_specs,
       legend.position = "bottom"
     )
 
+  # Add subtitle with issue summary if issues detected
+  if (!is.null(issues_df) && nrow(issues_df) > 0) {
+    n_errors <- sum(issues_df$severity == "error", na.rm = TRUE)
+    n_warnings <- sum(issues_df$severity == "warning", na.rm = TRUE)
+    subtitle <- sprintf("Pipeline Issues: %d error(s), %d warning(s)", n_errors, n_warnings)
+    p <- p + ggplot2::labs(subtitle = subtitle)
+  }
+
   attr(p, "pipeline_df") <- pipeline_df
 
   p
+}
+
+
+#' Extract sensitivity analysis pipeline as a table with validation
+#'
+#' Generates a data frame showing the order and configuration of each build step
+#' that will be executed during sensitivity or uncertainty analysis. Unlike
+#' [plot_sensitivity_pipeline()], this function returns a table that can be
+#' programmatically inspected, and includes validation checks to detect pipeline
+#' configuration issues before running expensive SA computations.
+#'
+#' @param coin A coin object.
+#' @param SA_specs A list of sensitivity specifications as supplied to
+#'   [get_sensitivity()].
+#' @param validate Logical. If `TRUE` (default), runs validation checks on the
+#'   pipeline to detect issues such as dataset order mismatches, data overwriting,
+#'   and missing datasets.
+#' @param focus Either `"all"` (default) to show the full pipeline, `"modified"`
+#'   to keep only steps affected by the specifications, or `"issues"` to keep
+#'   only steps with validation issues (requires `validate = TRUE`).
+#'
+#' @return A data frame with columns:
+#'   \describe{
+#'     \item{step_id}{Name of the pipeline step (e.g., "new_coin", "Impute").}
+#'     \item{order}{Sequential order of the step in the pipeline.}
+#'     \item{input_dset}{Name of the input dataset for this step.}
+#'     \item{output_dset}{Name of the output dataset for this step.}
+#'     \item{log_args}{Arguments logged for this step (e.g., "dset = Raw").}
+#'     \item{spec_args}{Specifications that will override defaults during SA.}
+#'     \item{modified}{Logical indicating if this step is modified by SA_specs.}
+#'     \item{has_issues}{Logical indicating if validation detected issues (when `validate = TRUE`).}
+#'     \item{issue_type}{Type of issue detected (e.g., "dataset_mismatch").}
+#'     \item{issue_severity}{Severity level: "error", "warning", or NA.}
+#'     \item{issue_message}{Human-readable description of the issue.}
+#'   }
+#'
+#' @details
+#' ## Validation Checks
+#'
+#' When `validate = TRUE`, the function performs the following checks:
+#'
+#' 1. **Dataset Order Validation**: Ensures each step's input dataset matches
+#'    the previous step's output dataset, preventing issues like
+#'    `new_coin → treat → normalise → impute` (wrong order).
+#'
+#' 2. **Data Overwriting Detection**: Flags when multiple steps write to the
+#'    same dataset, which can cause data loss and unpredictable results.
+#'
+#' 3. **Missing Dataset Check**: Verifies that input datasets exist in the
+#'    current coin state, preventing runtime errors.
+#'
+#' ## Focus Modes
+#'
+#' - `focus = "all"`: Returns complete pipeline table (default)
+#' - `focus = "modified"`: Returns only steps affected by SA_specs
+#' - `focus = "issues"`: Returns only steps with validation issues
+#'
+#' @examples
+#' \dontrun{
+#' # Get full pipeline with validation
+#' pipeline <- get_sensitivity_pipeline(coin, SA_specs)
+#' print(pipeline)
+#'
+#' # Check only for issues
+#' issues <- get_sensitivity_pipeline(coin, SA_specs, focus = "issues")
+#' if (nrow(issues) > 0) {
+#'   print("Pipeline has issues:")
+#'   print(issues[, c("step_id", "issue_type", "issue_message")])
+#' }
+#'
+#' # Get modified steps only
+#' modified <- get_sensitivity_pipeline(coin, SA_specs, focus = "modified")
+#' }
+#'
+#' @seealso [plot_sensitivity_pipeline()], [get_sensitivity()], [get_sensitivity2()]
+#'
+#' @export
+get_sensitivity_pipeline <- function(coin, SA_specs, validate = TRUE,
+                                      focus = c("all", "modified", "issues")) {
+
+  focus <- match.arg(focus)
+
+  # Build basic pipeline table (reusing logic from plot_sensitivity_pipeline)
+  pipeline_df <- .build_pipeline_table(coin, SA_specs)
+
+  # Add validation checks if requested
+  if (validate) {
+    pipeline_df <- .validate_pipeline(pipeline_df, coin)
+  } else {
+    # Add empty validation columns
+    pipeline_df$has_issues <- FALSE
+    pipeline_df$issue_type <- NA_character_
+    pipeline_df$issue_severity <- NA_character_
+    pipeline_df$issue_message <- NA_character_
+  }
+
+  # Apply focus filter
+  if (focus == "modified") {
+    pipeline_df <- pipeline_df[pipeline_df$modified, , drop = FALSE]
+    if (nrow(pipeline_df) == 0) {
+      warning("No pipeline steps are targeted by the supplied SA_specs.",
+              call. = FALSE)
+    }
+  } else if (focus == "issues") {
+    if (!validate) {
+      stop("focus = 'issues' requires validate = TRUE", call. = FALSE)
+    }
+    pipeline_df <- pipeline_df[pipeline_df$has_issues, , drop = FALSE]
+    if (nrow(pipeline_df) == 0) {
+      message("No pipeline issues detected.")
+    }
+  }
+
+  # Add class for print method
+  class(pipeline_df) <- c("sa_pipeline", "data.frame")
+
+  pipeline_df
+}
+
+
+#' Build basic pipeline table
+#'
+#' Internal helper function that extracts pipeline structure from coin log
+#' and SA_specs. This is the core logic originally embedded in
+#' plot_sensitivity_pipeline().
+#'
+#' @param coin A coin object
+#' @param SA_specs A list of sensitivity specifications
+#'
+#' @return A data frame with pipeline structure
+#'
+#' @keywords internal
+#' @noRd
+.build_pipeline_table <- function(coin, SA_specs) {
+  check_coin_input(coin)
+  stopifnot(is.list(SA_specs))
+
+  log_entries <- .get_log_entries(coin)
+  if (is.null(log_entries)) {
+    stop("No regeneration log found in the supplied coin.", call. = FALSE)
+  }
+
+  step_names <- names(log_entries)
+  step_names <- step_names[step_names != "can_regen"]
+
+  default_inputs <- c(
+    Denominate = "Raw",
+    Impute = "Denominated",
+    Screen = "Imputed",
+    Treat = "Screened",
+    Normalise = "Treated",
+    Aggregate = "Normalised"
+  )
+  default_outputs <- c(
+    new_coin = "Raw",
+    Denominate = "Denominated",
+    Impute = "Imputed",
+    Screen = "Screened",
+    Treat = "Treated",
+    Normalise = "Normalised",
+    Aggregate = "Aggregated"
+  )
+
+  spec_table <- .collect_spec_metadata(SA_specs)
+  ignored_specs <- spec_table$spec_id[is.na(spec_table$step_id)]
+  if (length(ignored_specs) > 0) {
+    warning("Some SA_specs do not reference the coin log and are omitted: ",
+            paste(ignored_specs, collapse = ", "), call. = FALSE)
+  }
+  spec_table <- spec_table[!is.na(spec_table$step_id), , drop = FALSE]
+
+  rows <- vector("list", length(step_names))
+
+  for (ii in seq_along(step_names)) {
+    step <- step_names[ii]
+    args <- log_entries[[step]]
+    if (!is.null(args$dset)) {
+      input <- .format_scalar(args$dset)
+    } else if (step %in% names(default_inputs)) {
+      input <- default_inputs[[step]]
+    } else {
+      input <- NA_character_
+    }
+    if (!is.null(args$write_to)) {
+      output <- .format_scalar(args$write_to)
+    } else if (step %in% names(default_outputs)) {
+      output <- default_outputs[[step]]
+    } else {
+      output <- NA_character_
+    }
+
+    log_parts <- character()
+    if (!is.null(args$dset)) {
+      log_parts <- c(log_parts, paste0("dset = ", .format_scalar(args$dset)))
+    }
+    if (!is.null(args$write_to)) {
+      log_parts <- c(log_parts, paste0("write_to = ", .format_scalar(args$write_to)))
+    }
+    log_args <- paste(log_parts, collapse = " | ")
+
+    step_specs <- spec_table[spec_table$step_id == step, , drop = FALSE]
+    spec_desc <- character()
+    if (nrow(step_specs) > 0) {
+      for (jj in seq_len(nrow(step_specs))) {
+        spec_row <- step_specs[jj, ]
+        log_value <- .extract_log_value(args, spec_row$path_tokens[[1]])
+        log_label <- if (is.null(log_value)) "NULL" else .format_scalar(log_value)
+        spec_label <- .format_distribution(spec_row$distribution[[1]], spec_row$dist_type)
+        path_label <- if (length(spec_row$path_tokens[[1]]) == 0) {
+          "<entry>"
+        } else {
+          paste(spec_row$path_tokens[[1]], collapse = "$")
+        }
+        spec_desc <- c(
+          spec_desc,
+          paste0(
+            spec_row$spec_id, ": ", path_label,
+            " | log = ", log_label,
+            " | spec ", spec_row$dist_type, " = ", spec_label
+          )
+        )
+      }
+    }
+
+    rows[[ii]] <- data.frame(
+      step_id = step,
+      order = ii,
+      input_dset = ifelse(length(input), input, NA_character_),
+      output_dset = ifelse(length(output), output, NA_character_),
+      log_args = if (nchar(log_args) == 0) NA_character_ else log_args,
+      spec_args = if (length(spec_desc) == 0) NA_character_ else paste(spec_desc, collapse = "; "),
+      modified = nrow(step_specs) > 0,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  do.call(rbind, rows)
+}
+
+
+#' Validate pipeline configuration
+#'
+#' Internal helper function that checks for common pipeline configuration issues.
+#'
+#' @param pipeline_df Pipeline data frame from .build_pipeline_table()
+#' @param coin A coin object
+#'
+#' @return Pipeline data frame with validation columns added
+#'
+#' @keywords internal
+#' @noRd
+.validate_pipeline <- function(pipeline_df, coin) {
+
+  # Initialize validation columns
+  pipeline_df$has_issues <- FALSE
+  pipeline_df$issue_type <- NA_character_
+  pipeline_df$issue_severity <- NA_character_
+  pipeline_df$issue_message <- NA_character_
+
+  # Check 1: Dataset order validation
+  # Ensure each step's input matches the previous step's output
+  for (i in 2:nrow(pipeline_df)) {
+    expected_input <- pipeline_df$output_dset[i - 1]
+    actual_input <- pipeline_df$input_dset[i]
+
+    if (!is.na(expected_input) && !is.na(actual_input) &&
+        expected_input != actual_input) {
+      pipeline_df$has_issues[i] <- TRUE
+      pipeline_df$issue_type[i] <- "dataset_mismatch"
+      pipeline_df$issue_severity[i] <- "error"
+      pipeline_df$issue_message[i] <- sprintf(
+        "Expected input '%s' but step uses '%s'",
+        expected_input, actual_input
+      )
+    }
+  }
+
+  # Check 2: Data overwriting detection
+  # Flag when multiple steps write to the same dataset
+  output_dsets <- pipeline_df$output_dset[!is.na(pipeline_df$output_dset)]
+  if (any(duplicated(output_dsets))) {
+    overwritten_dsets <- unique(output_dsets[duplicated(output_dsets)])
+    for (dset in overwritten_dsets) {
+      indices <- which(pipeline_df$output_dset == dset)
+      for (idx in indices[-1]) {  # Flag all but first occurrence
+        # Only flag if not already flagged by another issue
+        if (!pipeline_df$has_issues[idx]) {
+          pipeline_df$has_issues[idx] <- TRUE
+          pipeline_df$issue_type[idx] <- "data_overwrite"
+          pipeline_df$issue_severity[idx] <- "warning"
+          pipeline_df$issue_message[idx] <- sprintf(
+            "Overwrites dataset '%s' created by step %d (%s)",
+            dset, indices[1], pipeline_df$step_id[indices[1]]
+          )
+        }
+      }
+    }
+  }
+
+  # Check 3: Missing datasets
+  # Verify that input datasets exist in current coin state
+  if (!is.null(coin$Data)) {
+    available_dsets <- names(coin$Data)
+    for (i in seq_len(nrow(pipeline_df))) {
+      input_dset <- pipeline_df$input_dset[i]
+      # Skip first step (new_coin) which doesn't need pre-existing data
+      if (i > 1 && !is.na(input_dset) && !input_dset %in% available_dsets) {
+        # Only flag if not already flagged
+        if (!pipeline_df$has_issues[i]) {
+          pipeline_df$has_issues[i] <- TRUE
+          pipeline_df$issue_type[i] <- "missing_dataset"
+          pipeline_df$issue_severity[i] <- "warning"
+          pipeline_df$issue_message[i] <- sprintf(
+            "Input dataset '%s' not found in coin$Data",
+            input_dset
+          )
+        }
+      }
+    }
+  }
+
+  pipeline_df
+}
+
+
+#' Get pipeline issues only
+#'
+#' Convenience function to extract only pipeline steps with validation issues.
+#'
+#' @param coin A coin object.
+#' @param SA_specs A list of sensitivity specifications.
+#'
+#' @return A data frame containing only steps with issues, or an empty data frame
+#'   if no issues are detected. A message is printed if no issues are found.
+#'
+#' @examples
+#' \dontrun{
+#' issues <- get_pipeline_issues(coin, SA_specs)
+#' if (nrow(issues) > 0) {
+#'   print(issues[, c("step_id", "issue_type", "issue_message")])
+#' }
+#' }
+#'
+#' @seealso [get_sensitivity_pipeline()]
+#'
+#' @export
+get_pipeline_issues <- function(coin, SA_specs) {
+  get_sensitivity_pipeline(coin, SA_specs, validate = TRUE, focus = "issues")
+}
+
+
+#' Print method for SA pipeline tables
+#'
+#' Custom print method for sa_pipeline objects that provides a clean display
+#' of the pipeline with optional highlighting of issues.
+#'
+#' @param x An sa_pipeline object (from get_sensitivity_pipeline())
+#' @param ... Additional arguments passed to print.data.frame
+#'
+#' @return Invisibly returns the input object
+#'
+#' @export
+print.sa_pipeline <- function(x, ...) {
+  cat("Sensitivity Analysis Pipeline\n")
+  cat("==============================\n\n")
+
+  n_steps <- nrow(x)
+  n_modified <- sum(x$modified, na.rm = TRUE)
+  n_issues <- sum(x$has_issues, na.rm = TRUE)
+
+  cat(sprintf("Total steps: %d\n", n_steps))
+  cat(sprintf("Modified by SA_specs: %d\n", n_modified))
+  cat(sprintf("Steps with issues: %d\n\n", n_issues))
+
+  if (n_issues > 0) {
+    cat("ISSUES DETECTED:\n")
+    issues_df <- x[x$has_issues, c("step_id", "order", "issue_type",
+                                    "issue_severity", "issue_message"),
+                   drop = FALSE]
+    for (i in seq_len(nrow(issues_df))) {
+      issue <- issues_df[i, ]
+      severity_label <- toupper(issue$issue_severity)
+      cat(sprintf("  [%s] Step %d (%s): %s - %s\n",
+                  severity_label, issue$order, issue$step_id,
+                  issue$issue_type, issue$issue_message))
+    }
+    cat("\n")
+  }
+
+  cat("Pipeline Table:\n")
+  cat("---------------\n")
+
+  # Remove class to use default data.frame printing
+  class(x) <- "data.frame"
+  print(x, ...)
+
+  invisible(x)
 }
 
 

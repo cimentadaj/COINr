@@ -4,7 +4,12 @@
 \alias{plot_sensitivity_pipeline}
 \title{Visualise the regeneration pipeline targeted by \code{get_sensitivity()}}
 \usage{
-plot_sensitivity_pipeline(coin, SA_specs, focus = c("all", "modified"))
+plot_sensitivity_pipeline(
+  coin,
+  SA_specs,
+  focus = c("all", "modified", "issues"),
+  show_issues = TRUE
+)
 }
 \arguments{
 \item{coin}{A coin object.}
@@ -12,15 +17,24 @@ plot_sensitivity_pipeline(coin, SA_specs, focus = c("all", "modified"))
 \item{SA_specs}{A list of sensitivity specifications as supplied to
 \code{\link[=get_sensitivity]{get_sensitivity()}}.}
 
-\item{focus}{Either \code{"all"} (default) to show the full pipeline or
-\code{"modified"} to keep only steps affected by the specifications.}
+\item{focus}{Either \code{"all"} (default) to show the full pipeline, \code{"modified"}
+to keep only steps affected by the specifications, or \code{"issues"} to show
+only steps with validation issues.}
+
+\item{show_issues}{Logical. If \code{TRUE} (default), adds visual indicators for
+validation issues detected in the pipeline.}
 }
 \value{
-A \code{ggplot} object.
+A \code{ggplot} object with the pipeline data frame attached as an
+attribute (\code{attr(plot, "pipeline_df")}).
 }
 \description{
 Generates a static \code{ggplot2} graphic showing the order and configuration of
 each build step that will be executed during sensitivity or uncertainty
 analysis. Steps touched by the supplied specifications are highlighted and
 annotated with the corresponding overrides.
+}
+\seealso{
+\code{\link[=get_sensitivity_pipeline]{get_sensitivity_pipeline()}} for table-based pipeline extraction
+with validation.
 }
