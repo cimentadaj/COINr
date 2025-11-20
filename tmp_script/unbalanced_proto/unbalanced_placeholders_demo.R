@@ -113,152 +113,38 @@ SA_res <- get_sensitivity(coin, SA_specs = sa_specs, N = 10, SA_type = "SA",
 print(plot_uncertainty(SA_res, order_by = "nominal"))
 print(plot_sensitivity(SA_res, ptype = "bar"))
 
-cat("\n=== DEA AGGREGATION EXAMPLE ===\n")
-# Example 1: Aggregate using DEA in the final level
-coin_dea <- Aggregate(coin, dset = "Normalised",
-                      f_ag = c("a_amean", "a_dea"),
-                      by_df = c(FALSE, TRUE),
-                      w = list(NULL, "none"))
-cat("\nDEA Aggregation Results (first 5 units):\n")
-print(head(get_results(coin_dea, dset = "Aggregated", tab_type = "Summ"), 5))
+# DEA aggregation in final level
+coin_dea <- Aggregate(coin, dset = "Normalised", f_ag = c("a_amean", "a_dea"),
+                      by_df = c(FALSE, TRUE), w = list(NULL, "none"))
 
-# Example 2: Re-aggregate existing coin with DEA using get_DEA()
-cat("\n\nRe-aggregating with get_DEA() and weight restrictions (contribution bounds 10%-75%):\n")
+# Re-aggregate with DEA and weight restrictions
 dea_result <- get_DEA(coin, wr_type = 2, wr_bounds = c(0.10, 0.75))
-cat("DEA scores (first 5 units):\n")
-print(head(dea_result$DEA_CI[c("uCode", "Dea")], 5))
-cat("\nNormalized DEA weights (average across all units):\n")
-print(dea_result$norm.weights)
 
-cat("\n=== COMBINATION ANALYSIS EXAMPLE ===\n")
-# Test all possible indicator combinations within a dimension
+# Test indicator combinations within a dimension
 combo_res <- get_combinations(coin, dset = "Normalised", dimension = "SubA",
                                PCA_ref = 0.65, cronbach_alpha_ref = 0.7, verbose = FALSE)
-cat(sprintf("Tested %d combinations, found %d successful\n",
-            nrow(combo_res$Combinations$SubA), nrow(combo_res$Successful$SubA)))
-cat("Successful combinations meet criteria: PCA ≥ 0.65, eigenvalues < 2, Cronbach's α ≥ 0.7\n")
 
-cat("\n=== GET ICODES IN GROUP EXAMPLE ===\n")
-cat("Find all indicators (level 1) within SubA:\n")
-print(get_iCodes_in_group(coin, iCode_group = "SubA", at_level = 1))
+# Find all indicators within a group
+get_iCodes_in_group(coin, iCode_group = "SubA", at_level = 1)
 
-cat("\n=== GET PERTURBED WEIGHT SAMPLES EXAMPLE ===\n")
-# Example 1: Equal weights with 10% perturbation
-w <- c(0.25, 0.25, 0.25, 0.25)
-perturbed_weights <- get_perturbed_weight_samples(w, pert_by = 0.1, Nrep = 10,
-                                                   quietly = FALSE, tolerance = 0.01)
-cat("Example 1: Four equal weights with +/-10% perturbation\n")
-print(perturbed_weights)
-cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights), 4), collapse = ", "), "\n"))
+# Perturb weights by percentage
+perturbed_weights <- get_perturbed_weight_samples(c(0.25, 0.25, 0.25, 0.25),
+                                                   pert_by = 0.1, Nrep = 10, quietly = TRUE)
 
-# Example 2: Unequal weights with 20% perturbation
-w2 <- c(0.5, 0.3, 0.2)
-perturbed_weights2 <- get_perturbed_weight_samples(w2, pert_by = 0.2, Nrep = 5,
-                                                    quietly = FALSE, tolerance = 0.01)
-cat("\nExample 2: Three unequal weights with +/-20% perturbation\n")
-print(perturbed_weights2)
-cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights2), 4), collapse = ", "), "\n"))
-
-# Example 3: Vector perturbation - different perturbation for each weight
-w3 <- c(0.4, 0.3, 0.2, 0.1)
-pert_by_vec <- c(0.1, 0.2, 0.3, 0.1)  # Different perturbation for each weight
-perturbed_weights3 <- get_perturbed_weight_samples(w3, pert_by = pert_by_vec,
-                                                    Nrep = 8, quietly = FALSE)
-cat("\nExample 3: Four weights with varying perturbation levels\n")
-print(perturbed_weights3)
-cat(paste("Weight sums:", paste(round(rowSums(perturbed_weights3), 4), collapse = ", "), "\n"))
-
-cat("\n=== GET NOISY WEIGHTS2 EXAMPLE ===\n")
-# Get nominal weights from the coin object
+# Generate noisy weights
 w_nom <- coin$Meta$Ind[coin$Meta$Ind$Type %in% c("Indicator", "Aggregate"),
                        c("iCode", "Weight", "Level", "Parent")]
-
-# Example 1: Basic noise_specs only (25% noise at levels 2 and 3)
 noise_specs <- data.frame(Level = c(2, 3), NoiseFactor = c(0.25, 0.25))
-noisy_wts_basic <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs, Nrep = 3)
-cat("\nExample 1: Basic noise_specs (25% at levels 2 and 3)\n")
-cat("Number of replications:", length(noisy_wts_basic), "\n")
-cat("First replication (first 5 rows):\n")
-print(head(noisy_wts_basic[[1]], 5))
+noisy_wts <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs, Nrep = 3)
 
-# Example 2: Individual specs override (specific noise for individual components)
-individual_specs <- list(SubA = 0.5, IndA1 = 0.75)
-noisy_wts_individual <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
-                                            individual_specs = individual_specs, Nrep = 3)
-cat("\nExample 2: With individual_specs (SubA=50%, IndA1=75% override general specs)\n")
-cat("Number of replications:", length(noisy_wts_individual), "\n")
-cat("Weights for SubA and IndA1 in first replication:\n")
-print(noisy_wts_individual[[1]][noisy_wts_individual[[1]]$iCode %in% c("SubA", "IndA1"), ])
-
-# Example 3: Uniform distribution mode (correct_uniform_dist = TRUE)
-noisy_wts_uniform <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
-                                        Nrep = 3, correct_uniform_dist = TRUE, uniform_tol = 0.01)
-cat("\nExample 3: Uniform distribution mode (using rejection sampling)\n")
-cat("Number of replications:", length(noisy_wts_uniform), "\n")
-cat("First replication (first 5 rows):\n")
-print(head(noisy_wts_uniform[[1]], 5))
-
-# Example 4: Using get_iCodes_in_group for group-specific noise
-# Apply different noise to different groups
-level2_codes <- coin$Meta$Ind$iCode[coin$Meta$Ind$Level == 2 &
-                                     coin$Meta$Ind$Type == "Aggregate" &
-                                     !coin$Meta$Ind$IsPlaceholder %in% TRUE]
-# Create individual specs for level 2 aggregates with 50% noise
-if(length(level2_codes) > 0) {
-  group_specs <- setNames(as.list(rep(0.5, length(level2_codes))), level2_codes)
-  noisy_wts_groups <- get_noisy_weights2(w = w_nom, noise_specs = noise_specs,
-                                          individual_specs = group_specs, Nrep = 3)
-  cat("\nExample 4: Group-specific noise (50% for all level 2 aggregates)\n")
-  cat("Number of replications:", length(noisy_wts_groups), "\n")
-  cat("Level 2 weights in first replication:\n")
-  print(noisy_wts_groups[[1]][noisy_wts_groups[[1]]$Level == 2, ])
-}
-
-
-cat("\n=== get_sensitivity2() EXAMPLE ===\n")
-# Demonstrates new features: progress bar, convergence monitoring, early stopping
-
-sa_specs_compare <- list(
-  Winmax = list(
-    Address = "$Log$Treat$global_specs$f1_para$winmax",
-    Distribution = 1:3,
-    Type = "discrete"
-  )
-)
-
-cat("\nRunning get_sensitivity2() with convergence monitoring (no early stopping)...\n")
-cat("Using SA (sensitivity analysis) with Nboot=20 for convergence visualization...\n")
-set.seed(42)
+# Sensitivity analysis with convergence monitoring
+sa_specs_simple <- list(Winmax = list(Address = "$Log$Treat$global_specs$f1_para$winmax",
+                                       Distribution = 1:3, Type = "discrete"))
 SA_res_v2 <- get_sensitivity2(coin, SA_specs = sa_specs, N = 100, SA_type = "SA",
                               dset = "Aggregated", iCode = "Index", quietly = FALSE,
-                              report_progress = "bar", monitor_convergence = TRUE,
-                              converge_on = NULL, Nboot = 20)
+                              monitor_convergence = TRUE, converge_on = NULL, Nboot = 20)
+plot_convergence(SA_res_v2)
 
-cat("\nConvergence info:\n")
-cat("  Iterations completed:", sum(!is.na(SA_res_v2$est_err)), "\n")
-cat("  Final error:", round(tail(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)], 1)*100, 2), "%\n")
-cat("  Convergence points (%):", round(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)]*100, 2), "\n")
-if(!is.null(SA_res_v2$est_err)) plot_convergence(SA_res_v2)
-
-cat("\n=== get_statistics() EXAMPLE ===\n")
-# Demonstrates multivariate analysis: PCA, rotated PCA, and Cronbach's alpha
-
-cat("\nRunning multivariate analysis for SubA dimension (level 2)...\n")
-# Note: Only analyzing SubA which has real indicators (IndA1, IndA2)
-# AggSolo has only a placeholder child, so we skip it
+# Multivariate statistics by dimension
 multivar_stats <- get_statistics(coin, dset = "Normalised", level = 2, warnings = FALSE)
-
-cat("\nStatistics Summary:\n")
-print(multivar_stats$Statistics)
-
-cat("\nKey metrics explained:\n")
-cat("  - PCA_variance: Proportion of variance explained by first principal component\n")
-cat("  - cronbach: Cronbach's alpha for internal consistency (>0.7 is good)\n")
-cat("  - eigen_dim: Number of eigenvalues > 1 (suggests dimensionality)\n")
-cat("  - low_corr_pairs: Number of indicator pairs with correlation < 0.3\n")
-
-if(length(multivar_stats$Correlations) > 0) {
-  cat("\nCorrelation matrix for first dimension:\n")
-  print(multivar_stats$Correlations[[1]]$All)
-}
 
