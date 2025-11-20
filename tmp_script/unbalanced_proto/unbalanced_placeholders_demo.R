@@ -226,16 +226,18 @@ sa_specs_compare <- list(
   )
 )
 
-cat("\nRunning get_sensitivity2() with convergence monitoring and early stopping...\n")
+cat("\nRunning get_sensitivity2() with convergence monitoring (no early stopping)...\n")
+cat("Using SA (sensitivity analysis) with Nboot=20 for convergence visualization...\n")
 set.seed(42)
-SA_res_v2 <- get_sensitivity2(coin, SA_specs = sa_specs_compare, N = 20, SA_type = "UA",
+SA_res_v2 <- get_sensitivity2(coin, SA_specs = sa_specs, N = 100, SA_type = "SA",
                               dset = "Aggregated", iCode = "Index", quietly = FALSE,
                               report_progress = "bar", monitor_convergence = TRUE,
-                              converge_on = 0.05)
+                              converge_on = NULL, Nboot = 20)
 
 cat("\nConvergence info:\n")
 cat("  Iterations completed:", sum(!is.na(SA_res_v2$est_err)), "\n")
 cat("  Final error:", round(tail(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)], 1)*100, 2), "%\n")
+cat("  Convergence points (%):", round(SA_res_v2$est_err[!is.na(SA_res_v2$est_err)]*100, 2), "\n")
 if(!is.null(SA_res_v2$est_err)) plot_convergence(SA_res_v2)
 
 cat("\n=== get_statistics() EXAMPLE ===\n")
