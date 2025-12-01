@@ -1085,18 +1085,12 @@ get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cor
   }
 
   if(identical(out2, "list")){
-    if(is.list(res)){
-      if(is.data.frame(res$WeightsOpt)){
-        res$WeightsOpt <- res$WeightsOpt[!(res$WeightsOpt$iCode %in% placeholder_set), , drop = FALSE]
-      }
-      if(is.data.frame(res$CorrResultsNorm)){
-        if(length(level_codes) == nrow(res$CorrResultsNorm)){
-          rownames(res$CorrResultsNorm) <- level_codes
-        }
-        keep <- rownames(res$CorrResultsNorm)
-        if(!is.null(keep)){
-          res$CorrResultsNorm <- res$CorrResultsNorm[!(keep %in% placeholder_set), , drop = FALSE]
-        }
+    # NOTE: We intentionally do NOT strip placeholders from WeightsOpt and CorrResultsNorm
+    # because placeholders represent real weights that affect how indicators contribute to
+    # the Index. Showing them is essential for understanding optimization results.
+    if(is.list(res) && is.data.frame(res$CorrResultsNorm)){
+      if(length(level_codes) == nrow(res$CorrResultsNorm)){
+        rownames(res$CorrResultsNorm) <- level_codes
       }
     }
     return(res)
@@ -1107,16 +1101,11 @@ get_opt_weights.unbalanced_coin <- function(coin, itarg = NULL, dset, Level, cor
     if(is.null(weights_name)){
       weights_name <- paste0("OptimsedLev", Level)
     }
+    # NOTE: We intentionally do NOT strip placeholders - they represent real weights
     if(!is.null(res$Analysis$Weights[[weights_name]]$CorrResultsNorm)){
       df <- res$Analysis$Weights[[weights_name]]$CorrResultsNorm
-      if(is.data.frame(df)){
-        if(length(level_codes) == nrow(df)){
-          rownames(df) <- level_codes
-        }
-        keep <- rownames(df)
-        if(!is.null(keep)){
-          df <- df[!(keep %in% placeholder_set), , drop = FALSE]
-        }
+      if(is.data.frame(df) && length(level_codes) == nrow(df)){
+        rownames(df) <- level_codes
         res$Analysis$Weights[[weights_name]]$CorrResultsNorm <- df
       }
     }

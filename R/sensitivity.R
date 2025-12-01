@@ -343,6 +343,19 @@ regen_edit <- function(l_para, addresses, coin, regen_from = NULL){
                         new_value = l_para[[ii]])
   }
 
+  # If f_ag was modified but f_ag_para was NOT, clear f_ag_para to avoid conflicts.
+  # This prevents errors like "unused argument (p = 2)" when switching from a_genmean
+  # (which uses p) to a_amean (which doesn't).
+  all_addrs <- unlist(addresses)
+  f_ag_modified <- any(grepl("\\$f_ag$", all_addrs))
+  f_ag_para_specified <- any(grepl("f_ag_para", all_addrs))
+  if(f_ag_modified && !f_ag_para_specified){
+    # Find the f_ag address and derive the f_ag_para address
+    f_ag_addr <- all_addrs[grepl("\\$f_ag$", all_addrs)][1]
+    f_ag_para_addr <- sub("\\$f_ag$", "$f_ag_para", f_ag_addr)
+    coin_i <- edit_coin(coin_i, address = f_ag_para_addr, new_value = NULL)
+  }
+
   # regenerate the results
   tryCatch(
     expr = Regen(coin_i, from = regen_from, quietly = TRUE),

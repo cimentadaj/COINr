@@ -1,13 +1,7 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages({
-  if(requireNamespace("devtools", quietly = TRUE)){
-    devtools::load_all(quiet = TRUE)
-  }
-  if(!"package:COINr" %in% search()){
-    library(COINr)
-  }
-})
+devtools::install_github('cimentadaj/COINr@unbalanced-coin-prototype')
+library(COINr)
 
 data("unbal_scen1_iData", package = "COINr")
 data("unbal_scen1_iMeta", package = "COINr")
@@ -113,6 +107,9 @@ SA_res <- get_sensitivity(coin, SA_specs = sa_specs, N = 10, SA_type = "SA",
 print(plot_uncertainty(SA_res, order_by = "nominal"))
 print(plot_sensitivity(SA_res, ptype = "bar"))
 
+
+#### PORT FROM AUDTIR STARTS HERE ####
+
 # DEA aggregation in final level
 coin_dea <- Aggregate(coin, dset = "Normalised", f_ag = c("a_amean", "a_dea"),
                       by_df = c(FALSE, TRUE), w = list(NULL, "none"))
@@ -147,6 +144,8 @@ plot_convergence(SA_res_v2)
 
 # Multivariate statistics by dimension
 multivar_stats <- get_statistics(coin, dset = "Normalised", level = 2, warnings = FALSE)
+
+#### PORT FROM AUDITR ENDS HERE ####
 
 cat("\n\n=== PIPELINE VALIDATION EXAMPLES ===\n\n")
 

@@ -65,8 +65,15 @@ get_DEA.coin <- function(coin, level = NULL, wr_type = 0, wr_bounds = NULL, wr_r
     level <- max(imeta$Level, na.rm = TRUE)-1
   }
   imeta_p <- imeta[!is.na(imeta$Level) & imeta$Level == level, ]
-  Pillars <- indat[, which(colnames(indat) %in% imeta_p$iCode)]
+  Pillars <- indat[, which(colnames(indat) %in% imeta_p$iCode), drop = FALSE]
   uCode <- data.frame('uCode' =  indat$uCode)
+
+  # Check for sufficient pillars - DEA needs at least 2 inputs
+ if(ncol(Pillars) < 2){
+    stop("DEA requires at least 2 pillars at the specified level. Found only ", ncol(Pillars),
+         " pillar(s): ", paste(names(Pillars), collapse = ", "), ". ",
+         "For unbalanced coins, placeholders are excluded which may leave insufficient pillars.")
+  }
 
   # estimate results
   results <- a_dea(Pillars, wr_type = wr_type, wr_bounds = wr_bounds,
