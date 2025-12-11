@@ -1,0 +1,169 @@
+test_that("treat_num", {
+
+  # make a test vector with one outlier
+  x <- c(1:10, 100)
+
+  # this has skew and kurt outside limits. Should not pass
+  expect_false(check_SkewKurt(x)$Pass)
+
+  # ok now let's winsorise
+  lt <- Treat(x, f1 = "winsorise", f1_para = list(winmax = 5), f_pass = "check_SkewKurt")
+
+  # see if point has been correctly winsorised
+  expect_equal(lt$x[x == 100], 10)
+  expect_equal(x[1:10], lt$x[1:10])
+
+  # should now pass
+  expect_true(check_SkewKurt(lt$x)$Pass)
+
+  # test now a two-step treatment - add another outlier
+  x <- c(1:20, 100, 200)
+
+  # ok now let's winsorise
+  lt <- Treat(x, f1 = "winsorise", f1_para = list(winmax = 1), f_pass = "check_SkewKurt")
+
+  # we expect that since f2 is not defined, and winmax is 1, this should not pass
+  expect_false(check_SkewKurt(lt$x)$Pass)
+
+  # now allow second function
+  lt <- Treat(x, f1 = "winsorise", f1_para = list(winmax = 1), f_pass = "check_SkewKurt", f2 = "log")
+
+  # this should now be logged
+  expect_equal(log(x), lt$x)
+
+  # want to also test forced winsorisation
+  lt <- Treat(x, f1 = "winsorise", f1_para = list(winmax = 3, force_win = TRUE),
+              f_pass = "check_SkewKurt")
+
+  expect_equal(sum(lt$Treated_Points$winsorise != ""), 3)
+})
+
+test_that("treat_df", {
+
+  # we just need to check that the df method matches the num method
+  X <- data.frame(runif(11),
+                  c(1:10, 100),
+                  c(1:10, -100))
+
+  Xt <- Treat(X, global_specs = list(f1 = "winsorise",
+                                     f1_para = list(winmax = 2),
+                                     f2 = "log_CT",
+                                     f2_para = list(na.rm = TRUE),
+                                     f_pass = "check_SkewKurt"))
+
+  l_t <- lapply(X, Treat, f1 = "winsorise", f1_para = list(winmax = 2), f2 = "log_CT", f2_para = list(na.rm = TRUE),
+                f_pass = "check_SkewKurt")
+
+  # compare cols of Xt (df method) with l_t (numeric method)
+  for (ii in 1:3){
+    expect_equal(Xt$x_treat[[ii]], l_t[[ii]][["x"]])
+  }
+
+})
+
+test_that("treat_coin", {
+
+  # now we just check coin method matches df method
+
+  coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)
+  coin <- Treat(coin, dset = "Raw")
+  # get treated dset
+  dset_t <- get_dset(coin, "Treated")
+
+  # now do via df method
+  dset_r <- get_dset(coin, "Raw")
+  dset_t2 <- Treat(dset_r)
+
+  # compare
+  expect_identical(dset_t, dset_t2$x_treat)
+
+})
+
+test_that("disable_treat", {
+
+  purse <- build_example_purse(up_to = "Screen", quietly = T)
+
+  purse <- Treat(purse, dset = "Screened", disable = T)
+
+  d1 <- get_dset(purse, dset = "Treated")
+  d2 <- get_dset(purse, dset = "Screened")
+
+  expect_equal(d1, d2)
+
+})
+
+test_that("Treat unbalanced coin", {
+
+  idata_mod <- unbal_iData
+  idata_mod$IndA1[2] <- 150
+
+  specs <- list(f1 = "winsorise", f1_para = list(winmax = 2))
+
+  manual <- Treat(idata_mod, global_specs = specs)
+
+  coin_unbal <- new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE)
+  coin_unbal <- Treat(coin_unbal, dset = "Raw", global_specs = specs,
+                      write_to = "Treated_unbal", write2log = FALSE)
+
+  expect_s3_class(coin_unbal, c("unbalanced_coin", "coin"))
+
+  treated <- get_dset(coin_unbal, "Treated_unbal")
+  expect_setequal(names(treated), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_equal(treated, manual$x_treat)
+
+  placeholders <- coin_unbal$Meta$Unbalanced$PlaceholderCodes
+  expect_false(any(names(treated) %in% placeholders))
+
+  coin_unbal_list <- new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE)
+  treat_list <- Treat(coin_unbal_list, dset = "Raw", global_specs = specs,
+                      out2 = "list", write2log = FALSE)
+
+  expect_setequal(names(treat_list$x_treat), c("uCode", "IndA1", "IndA2", "IndB"))
+  expect_false(any(names(treat_list$x_treat) %in% coin_unbal_list$Meta$Unbalanced$PlaceholderCodes))
+
+  expect_error(Treat(new_unbalanced_coin(idata_mod, unbal_iMeta, quietly = TRUE),
+                     dset = "Raw", out2 = "coin"),
+               "Set out2 = 'unbalanced_coin'")
+
+})
+
+test_that("Skew-kurtosis check only fails when both thresholds are breached", {
+
+  x <- c(1:10, 100)
+
+  # baseline failure with both thresholds exceeded
+  expect_false(check_SkewKurt(x)$Pass)
+
+  # customise kurtosis threshold so only skew exceeds: now should pass
+  expect_true(check_SkewKurt(x, skew_thresh = 2, kurt_thresh = 11)$Pass)
+
+  # lowering thresholds forces a failure again
+  expect_false(check_SkewKurt(x, skew_thresh = 1, kurt_thresh = 2)$Pass)
+})
+
+test_that("Box-Cox automatic transformation reduces skewness and logs lambda", {
+
+  set.seed(991)
+  x <- rlnorm(200, meanlog = 1, sdlog = 1.5)
+
+  res <- Treat(x,
+               f1 = "winsorise",
+               f1_para = list(na.rm = TRUE,
+                              winmax = 0,
+                              skew_thresh = 2,
+                              kurt_thresh = 3.5,
+                              force_win = FALSE),
+               f2 = "boxcox_auto",
+               f2_para = list(na.rm = TRUE),
+               f_pass = "check_SkewKurt",
+               f_pass_para = list(na.rm = TRUE,
+                                  skew_thresh = 2,
+                                  kurt_thresh = 3.5))
+
+  bc_details <- res$Dets_Table$boxcox_auto
+
+  expect_named(bc_details, c("lambda", "Skew_Before", "Skew_After"))
+  expect_false(is.na(bc_details$lambda))
+  expect_lt(abs(bc_details$Skew_After), abs(bc_details$Skew_Before))
+  expect_true(check_SkewKurt(res$x)$Pass)
+})

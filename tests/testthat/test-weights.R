@@ -1,0 +1,126 @@
+test_that("eff_wts", {
+
+  # make coin
+  # build example coin
+  coin <- build_example_coin(up_to = "new_coin", quietly = TRUE)
+
+  # get effective weights as data frame
+  w_eff <- get_eff_weights(coin, out2 = "df")
+  expect_s3_class(w_eff, "data.frame")
+
+  # expect that all sum to 1 at each level
+  wsums <- tapply(w_eff$EffWeight, w_eff$Level, sum)
+  expect_equal(as.numeric(wsums), rep(1, 4))
+
+  # append to coin
+  coin <- get_eff_weights(coin, out2 = "coin")
+  expect_s3_class(coin, "coin")
+
+})
+
+test_that("get_eff_weights.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  eff_df <- get_eff_weights(unbal, out2 = "df")
+  expect_s3_class(eff_df, "data.frame")
+  if(length(ph_codes) > 0){
+    expect_false(any(eff_df$iCode %in% ph_codes))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  eff_bal <- get_eff_weights.coin(balanced, out2 = "df")
+  if(length(ph_codes) > 0){
+    eff_bal <- eff_bal[!(eff_bal$iCode %in% ph_codes), , drop = FALSE]
+  }
+  expect_equal(eff_df[order(eff_df$iCode), ], eff_bal[order(eff_bal$iCode), ])
+
+  eff_coin <- get_eff_weights(unbal, out2 = "coin")
+  expect_s3_class(eff_coin, "unbalanced_coin")
+  if(length(ph_codes) > 0){
+    expect_false(any(eff_coin$Meta$Ind$iCode %in% ph_codes))
+  }
+  expect_true("EffWeight" %in% names(eff_coin$Meta$Ind))
+  matched <- match(eff_df$iCode, eff_coin$Meta$Ind$iCode)
+  expect_false(any(is.na(matched)))
+  expect_equal(eff_coin$Meta$Ind$EffWeight[matched], eff_df$EffWeight)
+})
+
+test_that("get_opt_weights.unbalanced_coin strips placeholders", {
+
+  data("unbal_iData", package = "COINr")
+  data("unbal_iMeta", package = "COINr")
+
+  unbal <- new_unbalanced_coin(unbal_iData, unbal_iMeta, quietly = TRUE)
+  unbal <- Aggregate(unbal, dset = "Raw", out2 = "unbalanced_coin")
+  ph_codes <- unbal$Meta$Unbalanced$PlaceholderCodes
+
+  opt_list <- get_opt_weights(unbal, itarg = "equal", dset = "Aggregated",
+                              Level = 2, out2 = "list")
+  expect_true(is.list(opt_list))
+  if(is.data.frame(opt_list$WeightsOpt)){
+    expect_false(any(opt_list$WeightsOpt$iCode %in% ph_codes))
+  }
+  if(is.data.frame(opt_list$CorrResultsNorm) && !is.null(rownames(opt_list$CorrResultsNorm))){
+    expect_false(any(rownames(opt_list$CorrResultsNorm) %in% ph_codes))
+  }
+
+  balanced <- structure(unbal, class = setdiff(class(unbal), "unbalanced_coin"))
+  opt_bal <- get_opt_weights(balanced, itarg = "equal", dset = "Aggregated",
+                             Level = 2, out2 = "list")
+  if(length(ph_codes) > 0){
+    if(is.data.frame(opt_bal$WeightsOpt)){
+      opt_bal$WeightsOpt <- opt_bal$WeightsOpt[!(opt_bal$WeightsOpt$iCode %in% ph_codes), , drop = FALSE]
+    }
+    if(is.data.frame(opt_bal$CorrResultsNorm)){
+      level_codes <- balanced$Meta$Weights$Original$iCode[balanced$Meta$Weights$Original$Level == 2]
+      if(length(level_codes) == nrow(opt_bal$CorrResultsNorm)){
+        rownames(opt_bal$CorrResultsNorm) <- level_codes
+        opt_bal$CorrResultsNorm <- opt_bal$CorrResultsNorm[!(rownames(opt_bal$CorrResultsNorm) %in% ph_codes), , drop = FALSE]
+      }
+    }
+  }
+
+  if(is.data.frame(opt_list$WeightsOpt) && is.data.frame(opt_bal$WeightsOpt)){
+    expect_equal(opt_list$WeightsOpt, opt_bal$WeightsOpt)
+  }
+  if(is.data.frame(opt_list$CorrResultsNorm) && is.data.frame(opt_bal$CorrResultsNorm)){
+    expect_equal(opt_list$CorrResultsNorm, opt_bal$CorrResultsNorm)
+  }
+
+  opt_coin <- get_opt_weights(unbal, itarg = "equal", dset = "Aggregated",
+                              Level = 2, out2 = "coin", weights_to = "OptLev2")
+  expect_s3_class(opt_coin, "unbalanced_coin")
+  corr_norm <- opt_coin$Analysis$Weights$OptLev2$CorrResultsNorm
+  if(is.data.frame(corr_norm) && !is.null(rownames(corr_norm))){
+    expect_false(any(rownames(corr_norm) %in% ph_codes))
+  }
+})
+
+test_that("opt_weights", {
+
+  # build example coin
+  coin <- build_example_coin(quietly = TRUE)
+
+  # optimise weights at level 3
+  l_opt <- get_opt_weights(coin, itarg = "equal", dset = "Aggregated",
+                          Level = 3, out2 = "list")
+  # expect normalised results to be equal
+  expect_equal(round(l_opt$CorrResultsNorm$Obtained, 2),
+               c(0.5, 0.5))
+
+  coin <- get_opt_weights(coin, itarg = "equal", dset = "Aggregated",
+                           Level = 3, weights_to = "OptLev3", out2 = "coin")
+  expect_s3_class(coin, "coin")
+
+  # new situation with unequal influence (one twice as much as the other)
+  l_opt <- get_opt_weights(coin, itarg = c(1,2), dset = "Aggregated",
+                           Level = 3, weights_to = "OptLev3", out2 = "list", toler = 0.01)
+  expect_equal(round(l_opt$CorrResultsNorm$Obtained, 2),
+               c(0.33, 0.67))
+
+})
