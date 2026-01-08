@@ -380,13 +380,11 @@ a_dea <- function(x, w=NA, cross=FALSE, wr_type = 0, wr_bounds = NULL,
       if (!is.matrix(wr_bounds) || ncol(wr_bounds) != N || !all(sapply(wr_bounds, is.numeric))) {
         stop("wr_bounds must be a numeric matrix with N columns when wr_type is 1 (ordering of weights, relative restrictions or non homogeneous linear restrictions).")
       } else {
-        if (!is.null(wr_rhs)) {
-          if (!is.numeric(wr_rhs)|| length(wr_rhs) != nrow(wr_bounds)) {
-            stop("wr_rhs must be a numeric vector of length equal to the number of rows in wr_bounds (i.e, equal to the number of weight restrictions)")
-          } else {
-            wr_lhs <-c(rep(0, nrow(wr_bounds)))
-            message(" wr_rhs is not defined, defaulting to a vector of zeros")
-          }
+        if (is.null(wr_rhs)) {
+          wr_rhs <- rep(0, nrow(wr_bounds))
+          message("wr_rhs is not defined, defaulting to a vector of zeros")
+        } else if (!is.numeric(wr_rhs)|| length(wr_rhs) != nrow(wr_bounds)) {
+          stop("wr_rhs must be a numeric vector of length equal to the number of rows in wr_bounds (i.e, equal to the number of weight restrictions)")
         }
       }
     }
