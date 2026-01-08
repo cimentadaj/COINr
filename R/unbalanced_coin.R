@@ -499,8 +499,14 @@
     if(parent %nin% existing_codes){
       stop(sprintf("Parent '%s' referenced by '%s' not found in metadata.", parent, child))
     }
-    lvl_child <- levels_initial[[child]]
-    lvl_parent <- levels_initial[[parent]]
+    # Use user-specified levels for gap detection, fall back to computed if unavailable
+    # Use safe access since placeholders created in previous iterations won't be in original_level_map
+    lvl_child <- if(child %in% names(original_level_map)) original_level_map[[child]] else NA
+    if(is.na(lvl_child)) lvl_child <- levels_initial[[child]]
+
+    lvl_parent <- if(parent %in% names(original_level_map)) original_level_map[[parent]] else NA
+    if(is.na(lvl_parent)) lvl_parent <- levels_initial[[parent]]
+
     if(is.na(lvl_parent) || is.na(lvl_child)){
       next
     }

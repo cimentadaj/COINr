@@ -119,3 +119,108 @@ test_that("new_unbalanced_coin errors when aggregates remain at level 1", {
     fixed = TRUE
   )
 })
+
+test_that("new_unbalanced_coin handles user-specified levels differing from computed", {
+  # Scenario: Indicator L1 -> Aggregate L3 (user specifies L3, computed would be L2)
+  # This mimics the client's Food/FoodSecure case where user wants pillars at same
+  # conceptual level even though they have different tree depths
+
+  iData <- data.frame(
+    uCode = c("U1", "U2", "U3"),
+    IndA = c(10, 20, 30),
+    IndB = c(15, 25, 35),
+    stringsAsFactors = FALSE
+  )
+
+  iMeta <- data.frame(
+    iCode = c("IndA", "IndB", "PillarA", "Index"),
+    Level = c(1, 1, 3, 4),
+    Parent = c("PillarA", "PillarA", "Index", NA),
+    Direction = c(1, 1, 1, 1),
+    Weight = c(1, 1, 1, 1),
+    Type = c("Indicator", "Indicator", "Aggregate", "Aggregate"),
+    stringsAsFactors = FALSE
+  )
+
+  coin <- new_unbalanced_coin(iData, iMeta, quietly = TRUE)
+
+  expect_s3_class(coin, c("unbalanced_coin", "coin"))
+
+  # Should have created placeholder(s) to bridge L1 -> L3 gap
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  expect_true(length(placeholders) >= 1)
+
+  # Balanced metadata should have L2 placeholders
+  balanced <- coin$Meta$Unbalanced$BalancedMeta
+  placeholder_levels <- balanced$Level[balanced$IsPlaceholder == TRUE]
+  expect_true(2 %in% placeholder_levels)
+})
+
+test_that("new_unbalanced_coin handles multi-level gaps with user-specified levels", {
+  # Scenario: Indicator L1 -> Aggregate L5 (4-level gap, needs 3 placeholders)
+
+  iData <- data.frame(
+    uCode = c("U1", "U2", "U3"),
+    Ind1 = c(10, 20, 30),
+    stringsAsFactors = FALSE
+  )
+
+  iMeta <- data.frame(
+    iCode = c("Ind1", "TopLevel"),
+    Level = c(1, 5),
+    Parent = c("TopLevel", NA),
+    Direction = c(1, 1),
+    Weight = c(1, 1),
+    Type = c("Indicator", "Aggregate"),
+    stringsAsFactors = FALSE
+  )
+
+  coin <- new_unbalanced_coin(iData, iMeta, quietly = TRUE)
+
+  expect_s3_class(coin, c("unbalanced_coin", "coin"))
+
+  # Should have created 3 placeholders (L2, L3, L4)
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  expect_true(length(placeholders) >= 3)
+
+  balanced <- coin$Meta$Unbalanced$BalancedMeta
+  placeholder_levels <- sort(unique(balanced$Level[balanced$IsPlaceholder == TRUE]))
+  expect_true(all(c(2, 3, 4) %in% placeholder_levels))
+})
+
+test_that("new_unbalanced_coin handles mixed user-specified and computed levels", {
+  # Scenario: Some branches use computed levels, others need placeholders
+  # PillarA: IndA1, IndA2 -> SubA (L2) -> PillarA (L3) - natural depth
+  # PillarB: IndB -> PillarB (L3) - needs L2 placeholder
+
+  iData <- data.frame(
+    uCode = c("U1", "U2", "U3"),
+    IndA1 = c(10, 20, 30),
+    IndA2 = c(11, 21, 31),
+    IndB = c(15, 25, 35),
+    stringsAsFactors = FALSE
+  )
+
+  iMeta <- data.frame(
+    iCode = c("IndA1", "IndA2", "IndB", "SubA", "PillarA", "PillarB", "Index"),
+    Level = c(1, 1, 1, 2, 3, 3, 4),
+    Parent = c("SubA", "SubA", "PillarB", "PillarA", "Index", "Index", NA),
+    Direction = c(1, 1, 1, 1, 1, 1, 1),
+    Weight = c(1, 1, 1, 1, 1, 1, 1),
+    Type = c("Indicator", "Indicator", "Indicator", "Aggregate", "Aggregate", "Aggregate", "Aggregate"),
+    stringsAsFactors = FALSE
+  )
+
+  coin <- new_unbalanced_coin(iData, iMeta, quietly = TRUE)
+
+  expect_s3_class(coin, c("unbalanced_coin", "coin"))
+
+  # Should have placeholder for IndB -> PillarB gap
+  placeholders <- coin$Meta$Unbalanced$PlaceholderCodes
+  expect_true(length(placeholders) >= 1)
+
+  # PillarA branch should NOT have extra placeholders (natural L2 SubA exists)
+  balanced <- coin$Meta$Unbalanced$BalancedMeta
+  pillarA_children <- balanced$iCode[balanced$Parent == "PillarA" & !is.na(balanced$Parent)]
+  expect_true("SubA" %in% pillarA_children)
+})
