@@ -81,17 +81,24 @@ reference:
   - get_corr
   - get_corr_flags
   - get_cronbach
+  - cronbach_alpha
   - get_data
   - get_data_avail
   - get_denom_corr
+  - get_DEA
   - get_eff_weights
   - get_opt_weights
   - get_noisy_weights
+  - get_noisy_weights2
+  - get_perturbed_weight_samples
   - get_PCA
   - get_pvals
   - get_results
   - get_sensitivity
+  - get_sensitivity2
+  - get_sensitivity_pipeline
   - get_stats
+  - get_statistics
   - get_str_weak
   - get_trends
   - get_unit_summary
@@ -100,12 +107,14 @@ reference:
   desc: Plot indicators, distributions and others
   contents:
   - plot_bar
+  - plot_convergence
   - plot_corr
   - plot_dist
   - plot_dot
   - plot_framework
   - plot_scatter
   - plot_sensitivity
+  - plot_sensitivity_pipeline
   - plot_uncertainty
 - title: Adjust and compare
   desc: Adjust coins, regenerate them and compare alternative versions
@@ -123,6 +132,8 @@ reference:
   - build_example_coin
   - build_example_purse
   - export_to_excel
+  - get_combinations
+  - get_iCodes_in_group
 - title: Other functions
   desc: Other functions including methods and small functions called by other functions
   contents:
@@ -133,10 +144,12 @@ reference:
   - approx_df
   - a_amean
   - a_copeland
+  - a_dea
   - a_gmean
   - a_hmean
   - a_genmean
   - boxcox
+  - boxcox_auto
   - CAGR
   - check_iData
   - check_iMeta
@@ -158,6 +171,7 @@ reference:
   - get_dset.coin
   - get_dset.purse
   - get_dset
+  - get_pipeline_issues
   - get_stats.coin
   - get_stats.data.frame
   - Impute.coin
@@ -197,6 +211,7 @@ reference:
   - prc_change
   - print.coin
   - print.purse
+  - print.sa_pipeline
   - qNormalise.coin
   - qNormalise.data.frame
   - qNormalise.purse
@@ -228,7 +243,10 @@ reference:
   - ASEM_iData
   - ASEM_iData_p
   - ASEM_iMeta
+  - ASEM_unbal_iData
+  - ASEM_unbal_iMeta
   - unbal_iData
   - unbal_iMeta
+  - unbalanced_scenario_data
   - WorldDenoms
 
